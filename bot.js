@@ -1,11 +1,12 @@
 const TelegramBot = require('node-telegram-bot-api');
-const token = '7986508775:AAFN9SFEqbFtu4kej7GnGhkiIUzzP7ZldWA'; // <-- Вставь сюда свой токен бота!
+const token = '7986508775:AAFN9SFEqbFtu4kej7GnGhkiIUzzP7ZldWA'; // <-- Токен твоего бота
 const bot = new TelegramBot(token, { polling: true });
 
 bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
     const tgId = msg.from.id;
-    const vkAuthUrl = `https://www.fokusnikaltair.xyz/?tg_id=${tgId}`; // <-- адрес фронта + tg_id
+    // Обновлённая ссылка на фронт с новым доменом!
+    const vkAuthUrl = `https://fokusnikaltair.xyz/?tg_id=${tgId}`; // <-- без www (если домен работает так) и без api.
 
     const welcomeText = 'Привет! Для авторизации через VK перейди по ссылке ниже:';
 
