@@ -18,7 +18,7 @@ bot.onText(/\/start/, (msg) => {
   const tgId = msg.from.id;
 
   // 🪄 Ссылка на портал авторизации VK ID с передачей tg_id
-  const vkAuthUrl = `https://fokusnikaltair.xyz/?tg_id=${tgId}`;
+  const vkAuthUrl = `https://fokusnikaltair.xyz/vkid-auth.html?tg_id=${tgId}`;
 
   const welcomeText = '✨ Привет! Для авторизации через VK перейди по ссылке ниже:';
 
