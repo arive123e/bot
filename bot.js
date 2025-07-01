@@ -12,6 +12,12 @@ if (!token) {
 
 const bot = new TelegramBot(token, { polling: true });
 
+// Добавь это сразу после создания бота
+bot.on('message', (msg) => {
+  console.log('Получено сообщение в чате:', msg.chat.title || msg.chat.username || msg.chat.id);
+  console.log('chat_id:', msg.chat.id);
+});
+
 // 🎯 Обработка команды /start
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
