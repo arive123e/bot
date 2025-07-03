@@ -38,7 +38,7 @@ bot.onText(/\/start/, (msg) => {
       inline_keyboard: [
         [
           { text: 'Активировать портал 🌀', url: vkAuthUrl },
-          { text: 'Магическая безопасность 🛡', callback_data: 'privacy' }
+          { text: 'Магическая безопасность 🔐', callback_data: 'privacy' }
         ]
       ]
     }
