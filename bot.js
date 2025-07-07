@@ -43,7 +43,7 @@ bot.onText(/\/start/, (msg) => {
   });
 
   // 2. Сразу после этого — reply-клавиатура "Завершить переход🔱"
-  bot.sendMessage(chatId, " ", {
+  bot.sendMessage(chatId, "\u200B", {
     reply_markup: {
       keyboard: [
         ['Завершить переход🔱']
