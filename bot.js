@@ -36,7 +36,7 @@ bot.onText(/\/start/, (msg) => {
 bot.sendMessage(chatId, welcomeText, {
   reply_markup: {
     inline_keyboard: [
-      [{ text: 'Активировать портал 🌀', url: vkAuthUrl }],
+      [{ text: 'Сотворить заклинание перехода 🌀', url: vkAuthUrl }],
       [{ text: 'Магическая безопасность 🔐', callback_data: 'privacy' }]
     ]
   }
