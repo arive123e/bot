@@ -5,7 +5,7 @@ const axios = require('axios');
 
 // 🤖 Получаем токен Telegram-бота из переменной окружения
 const token = process.env.TELEGRAM_BOT_TOKEN;
-const SUPPORT_CHAT_ID = -4927632033; // chat_id группы поддержки
+const SUPPORT_CHAT_ID = -4778492984; // chat_id группы поддержки
 
 
 if (!token) {
