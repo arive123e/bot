@@ -7,6 +7,11 @@ const axios = require('axios');
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const SUPPORT_CHAT_ID = -4927632033; // chat_id группы поддержки
 
+bot.on('message', (msg) => {
+  console.log('Сообщение из чата:', msg.chat.id, '| Имя чата:', msg.chat.title || '', '| Тип:', msg.chat.type);
+});
+
+
 if (!token) {
   console.error('❌ Ошибка: не указан TELEGRAM_BOT_TOKEN в .env');
   process.exit(1);
