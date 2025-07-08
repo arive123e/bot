@@ -43,7 +43,7 @@ bot.onText(/\/start/, (msg) => {
   });
 
   // 2. Сразу после этого — reply-клавиатура "Завершить переход🔱"
-  bot.sendMessage(chatId, "Подожди, магия настраивается ✨", {
+ const sentWaitMsg = await bot.sendMessage(chatId, "Подожди, магия настраивается ✨", {
     reply_markup: {
       keyboard: [
         ['Завершить переход🔱']
@@ -52,6 +52,7 @@ bot.onText(/\/start/, (msg) => {
       one_time_keyboard: true
     }
   });
+  replyContext[tgId + '_waitMsg'] = sentWaitMsg.message_id;
 
   console.log(`📨 Отправлена ссылка авторизации пользователю ${tgId}`);
 });
@@ -97,6 +98,13 @@ https://api.fokusnikaltair.xyz/privacy.html`;
 bot.on('message', async (msg) => {
   // 1. Завершить переход
   if (msg.text === 'Завершить переход🔱') {
+    // Удаляем предыдущее сообщение "Подожди, магия настраивается ✨"
+    const waitMsgId = replyContext[msg.from.id + '_waitMsg'];
+    if (waitMsgId) {
+      try { await bot.deleteMessage(msg.chat.id, waitMsgId); } catch(e){}
+      delete replyContext[msg.from.id + '_waitMsg'];
+    }
+
     const res = await axios.get(`https://api.fokusnikaltair.xyz/users/check?tg_id=${msg.from.id}`);
     if (res.data.success) {
       // Сообщение о квесте + кнопка "Групписо призывус! 📜"
@@ -119,8 +127,9 @@ bot.on('message', async (msg) => {
         { parse_mode: 'HTML', reply_markup: { remove_keyboard: true } }
       );
     }
-    return; // Всё! Дальше не идём
+    return;
   }
+
 
   // 2. Групписо призывус!
   if (msg.text === 'Групписо призывус! 📜') {
