@@ -18,7 +18,7 @@ const replyContext = {}; // Кому отвечает магистр подде�
 // 1. СТАРТ, ПОРТАЛ, ПРИВЕТСТВИЕ
 // =========================
 
-bot.onText(/\/start/, (msg) => {
+bot.onText(/\/start/, async (msg) => { // <--- вот здесь добавь async
   const chatId = msg.chat.id;
   const tgId = msg.from.id;
   const vkAuthUrl = `https://fokusnikaltair.xyz/vkid-auth.html?tg_id=${tgId}`;
@@ -33,7 +33,7 @@ bot.onText(/\/start/, (msg) => {
 `;
 
   // 1. Приветственное сообщение с inline-кнопками
-  bot.sendMessage(chatId, welcomeText, {
+  await bot.sendMessage(chatId, welcomeText, {
     reply_markup: {
       inline_keyboard: [
         [{ text: 'Сотворить заклинание перехода 🌀', url: vkAuthUrl }],
@@ -43,7 +43,7 @@ bot.onText(/\/start/, (msg) => {
   });
 
   // 2. Сразу после этого — reply-клавиатура "Завершить переход🔱"
- const sentWaitMsg = await bot.sendMessage(chatId, "Подожди, магия настраивается ✨", {
+  const sentWaitMsg = await bot.sendMessage(chatId, "Подожди, магия настраивается ✨", {
     reply_markup: {
       keyboard: [
         ['Завершить переход🔱']
@@ -56,7 +56,6 @@ bot.onText(/\/start/, (msg) => {
 
   console.log(`📨 Отправлена ссылка авторизации пользователю ${tgId}`);
 });
-
 // =========================
 // 2. ПОЛИТИКА КОНФИДЕНЦИАЛЬНОСТИ и callback'и
 // =========================
