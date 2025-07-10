@@ -102,28 +102,23 @@ https://api.fokusnikaltair.xyz/privacy.html`;
     if (!userSelectedGroups[userId]) userSelectedGroups[userId] = [];
     const selected = userSelectedGroups[userId];
 
-    // Логика выбора
+     // --- ПРАВИЛЬНО: здесь получаешь allGroups и selectMsgId!
+    const allGroups = userSelectedGroups[userId + '_all'] || [];
+    const selectMsgId = userSelectedGroups[userId + '_selectMsgId'];
+
+     // Логика выбора
     if (selected.includes(groupIdNum)) {
-      // Снимаем выделение
       userSelectedGroups[userId] = selected.filter(id => id !== groupIdNum);
     } else {
-      // Добавляем, если не превышен лимит
       if (selected.length >= MAX_GROUPS_FREE) {
         await bot.answerCallbackQuery(query.id, { text: `Максимум ${MAX_GROUPS_FREE} групп!`, show_alert: true });
         return;
       }
       userSelectedGroups[userId].push(groupIdNum);
     }
-
-    // Храним список групп, если ещё не храним
-    if (!userSelectedGroups[userId + '_all']) {
-      // Обычно сюда надо подгружать, но если showGroupSelection вызывалась, туда уже положено
-      // Можно ничего не делать, если уже есть
-    }
-    const allGroups = userSelectedGroups[userId + '_all'] || [];
-
+    
     // Обновляем инлайн-кнопки
-    await showGroupSelection(bot, query.message.chat.id, userId, allGroups, Number(page));
+    await showGroupSelection(bot, query.message.chat.id, userId, allGroups, Number(page), selectMsgId);
     await bot.answerCallbackQuery(query.id);
     return;
   }
@@ -136,7 +131,6 @@ https://api.fokusnikaltair.xyz/privacy.html`;
     const allGroups = userSelectedGroups[userId + '_all'] || [];
     const selectMsgId = userSelectedGroups[userId + '_selectMsgId'];
     await showGroupSelection(bot, query.message.chat.id, userId, allGroups, Number(page), selectMsgId);
-
   }
 
   // --- "Готово" ---
@@ -223,8 +217,6 @@ if (msg.text === 'Групписо призывус! 📜') {
 
     // Вызываем функцию, которая покажет кнопки с группами (по 10 штук, первая страница)
     await showGroupSelection(bot, msg.chat.id, msg.from.id, res.data.groups, 0, null);
-    // Сохраняем все группы для callback'ов
-    userSelectedGroups[msg.from.id + '_all'] = res.data.groups;
 
   } catch (e) {
     await bot.sendMessage(msg.chat.id, 'Что-то пошло не так при получении групп 😥');
@@ -292,6 +284,9 @@ async function showGroupSelection(bot, chatId, userId, allGroups, page = 0, mess
   if (allGroups.length > start + MAX_GROUPS_PER_PAGE) navButtons.push({ text: '➡️', callback_data: `groups_next:${page + 1}` });
   inline_keyboard.push(navButtons);
 
+  // --- Сохраняем allGroups и msgId для пользователя! ---
+  userSelectedGroups[userId + '_all'] = allGroups;
+
   const total = allGroups.length;
   const text = `🦄 У тебя аж <b>${total}</b> магических групп!\nКакой сегодня у нас настрой? Котики? Новости? Тык-тык — выбирай!`;
 
@@ -309,7 +304,7 @@ async function showGroupSelection(bot, chatId, userId, allGroups, page = 0, mess
       parse_mode: 'HTML',
       reply_markup: { inline_keyboard }
     });
-    // Сохраним message_id где-то, чтобы потом использовать для редактирования
+    // --- Сохраняем ID сообщения для дальнейших редактирований ---
     userSelectedGroups[userId + '_selectMsgId'] = sent.message_id;
   }
 }
