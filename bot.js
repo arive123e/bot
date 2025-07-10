@@ -112,7 +112,7 @@ https://api.fokusnikaltair.xyz/privacy.html`;
     } else {
       if (selected.length >= MAX_GROUPS_FREE) {
   await bot.answerCallbackQuery(query.id, { 
-    text: '✨ О, сила магии ещё не столь велика!\nМожно выбрать только 3 группы — остальные скоро будут доступны.', 
+    text: '✨ О, сила магии ещё не столь велика!\nМожно выбрать только 3 группы - остальные скоро будут доступны.', 
     show_alert: true 
   });
   return;
@@ -137,17 +137,31 @@ https://api.fokusnikaltair.xyz/privacy.html`;
   }
 
   // --- "Готово" ---
-  if (query.data === 'groups_done') {
-    const selectedGroups = userSelectedGroups[query.from.id] || [];
+if (query.data === 'groups_done') {
+  const selectedGroups = userSelectedGroups[query.from.id] || [];
+  if (selectedGroups.length) {
+    // Получаем имена выбранных групп
+    const allGroups = userSelectedGroups[query.from.id + '_all'] || [];
+    const names = selectedGroups
+      .map(id => {
+        const group = allGroups.find(g => g.id === id);
+        return group ? (group.name || group.screen_name || `ID${id}`) : `ID${id}`;
+      })
+      .join(', ');
     await bot.sendMessage(query.message.chat.id,
-      selectedGroups.length
-        ? `Ты выбрал группы: ${selectedGroups.map(id => 'ID' + id).join(', ')}\nСкоро магия начнет работать!`
-        : 'Ты ничего не выбрал — но всегда можно вернуться 😉'
+      `Группы выбраны! ⚡️\nСовсем скоро лента наполнится магией именно для тебя. Жди новости из: <b>${names}</b> 🦄`,
+      { parse_mode: 'HTML' }
     );
-    await bot.answerCallbackQuery(query.id);
-    // Здесь можно сохранить выбранные группы пользователя (в базу, файл, etc.)
-    return;
+  } else {
+    await bot.sendMessage(query.message.chat.id,
+      'Ты ничего не выбрал — но всегда можно вернуться 😉'
+    );
   }
+  await bot.answerCallbackQuery(query.id);
+  // Здесь можно сохранить выбранные группы пользователя (в базу, файл, etc.)
+  return;
+}
+
 
 });
 
