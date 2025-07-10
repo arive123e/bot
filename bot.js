@@ -305,5 +305,5 @@ const inline_keyboard = pageGroups.map((group, idx) => {
       inline_keyboard
     }
   });
-}
+};
 
