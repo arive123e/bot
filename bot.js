@@ -134,9 +134,9 @@ https://api.fokusnikaltair.xyz/privacy.html`;
     const page = Number(query.data.split(':')[1]);
     const userId = query.from.id;
     const allGroups = userSelectedGroups[userId + '_all'] || [];
-    await showGroupSelection(bot, query.message.chat.id, userId, allGroups, page);
-    await bot.answerCallbackQuery(query.id);
-    return;
+    const selectMsgId = userSelectedGroups[userId + '_selectMsgId'];
+    await showGroupSelection(bot, query.message.chat.id, userId, allGroups, Number(page), selectMsgId);
+
   }
 
   // --- "Готово" ---
@@ -222,7 +222,10 @@ if (msg.text === 'Групписо призывус! 📜') {
     userSelectedGroups[msg.from.id] = [];
 
     // Вызываем функцию, которая покажет кнопки с группами (по 10 штук, первая страница)
-    await showGroupSelection(bot, msg.chat.id, msg.from.id, res.data.groups, 0);
+    await showGroupSelection(bot, msg.chat.id, msg.from.id, res.data.groups, 0, null);
+    // Сохраняем все группы для callback'ов
+    userSelectedGroups[msg.from.id + '_all'] = res.data.groups;
+
   } catch (e) {
     await bot.sendMessage(msg.chat.id, 'Что-то пошло не так при получении групп 😥');
   }
@@ -267,7 +270,7 @@ bot.onText(/\/support/, (msg) => {
   );
 });
 
-async function showGroupSelection(bot, chatId, userId, allGroups, page = 0) {
+async function showGroupSelection(bot, chatId, userId, allGroups, page = 0, messageId = null) {
   const MAX_GROUPS_PER_PAGE = 10;
   const selected = userSelectedGroups[userId] || [];
   const start = page * MAX_GROUPS_PER_PAGE;
@@ -290,14 +293,23 @@ async function showGroupSelection(bot, chatId, userId, allGroups, page = 0) {
   inline_keyboard.push(navButtons);
 
   const total = allGroups.length;
-  await bot.sendMessage(chatId, 
-    `🦄 У тебя аж <b>${total}</b> магических групп!\nКакой сегодня у нас настрой? Котики? Новости? Тык-тык — выбирай!`, 
-    {
-      parse_mode: 'HTML',
-      reply_markup: {
-        inline_keyboard
-      }
-    }
-  );
-}
+  const text = `🦄 У тебя аж <b>${total}</b> магических групп!\nКакой сегодня у нас настрой? Котики? Новости? Тык-тык — выбирай!`;
 
+  if (messageId) {
+    // Если messageId передан — редактируем сообщение!
+    await bot.editMessageText(text, {
+      chat_id: chatId,
+      message_id: messageId,
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard }
+    });
+  } else {
+    // Иначе отправляем новое сообщение (при первом запуске)
+    const sent = await bot.sendMessage(chatId, text, {
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard }
+    });
+    // Сохраним message_id где-то, чтобы потом использовать для редактирования
+    userSelectedGroups[userId + '_selectMsgId'] = sent.message_id;
+  }
+}
