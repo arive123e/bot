@@ -287,7 +287,7 @@ async function showGroupSelection(bot, chatId, userId, allGroups, page = 0) {
   const navButtons = [];
   if (page > 0) navButtons.push({ text: '⬅️', callback_data: `groups_prev:${page - 1}` });
   navButtons.push({ text: '✅ Готово', callback_data: 'groups_done' });
-  if (allGroups.length > start + MAX_GROUPS_PER_PAGE) navButtons.push({ text: '➡️', callback_data: `groups_next:${page + 1}` });
+  if (allGroups.length > start + MAX_GROUPS_PER_PAGE) navButtons.push({ text: callback_data: `groups_next:${page + 1}` });
   inline_keyboard.push(navButtons);
 
   const total = allGroups.length;
