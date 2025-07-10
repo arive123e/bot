@@ -273,21 +273,15 @@ async function showGroupSelection(bot, chatId, userId, allGroups, page = 0) {
   const start = page * MAX_GROUPS_PER_PAGE;
   const pageGroups = allGroups.slice(start, start + MAX_GROUPS_PER_PAGE);
 
-  const inline_keyboard = pageGroups.map(group => {
+  // Только ОДНА переменная inline_keyboard!
+  const inline_keyboard = pageGroups.map((group, idx) => {
     const isSelected = selected.includes(group.id);
+    const groupNumber = start + idx + 1;
     return [{
-      text: (isSelected ? '✅ ' : '') + (group.name || group.screen_name || `ID${group.id}`),
+      text: (isSelected ? '✅ ' : '➡️ ') + `${groupNumber}. ` + (group.name || group.screen_name || `ID${group.id}`),
       callback_data: `select_group:${group.id}:${page}`
     }];
   });
-const inline_keyboard = pageGroups.map((group, idx) => {
-  const isSelected = selected.includes(group.id);
-  const groupNumber = start + idx + 1;
-  return [{
-    text: (isSelected ? '✅ ' : '') + `${groupNumber}. ` + (group.name || group.screen_name || `ID${group.id}`),
-    callback_data: `select_group:${group.id}:${page}`
-  }];
-});
 
   // Кнопки пагинации
   const navButtons = [];
@@ -296,14 +290,14 @@ const inline_keyboard = pageGroups.map((group, idx) => {
   if (allGroups.length > start + MAX_GROUPS_PER_PAGE) navButtons.push({ text: '➡️', callback_data: `groups_next:${page + 1}` });
   inline_keyboard.push(navButtons);
 
- const total = allGroups.length;
- await bot.sendMessage(chatId, 
-  `🦄 У тебя аж <b>${total}</b> магических групп!\nКакой сегодня у нас настрой? Котики? Новости? Тык-тык — выбирай!`, 
-  {
-    parse_mode: 'HTML',
-    reply_markup: {
-      inline_keyboard
+  const total = allGroups.length;
+  await bot.sendMessage(chatId, 
+    `🦄 У тебя аж <b>${total}</b> магических групп!\nКакой сегодня у нас настрой? Котики? Новости? Тык-тык — выбирай!`, 
+    {
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard
+      }
     }
-  });
-};
-
+  );
+}
