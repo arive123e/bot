@@ -273,13 +273,14 @@ async function showGroupSelection(bot, chatId, userId, allGroups, page = 0) {
   const start = page * MAX_GROUPS_PER_PAGE;
   const pageGroups = allGroups.slice(start, start + MAX_GROUPS_PER_PAGE);
 
-  const inline_keyboard = pageGroups.map(group => {
-    const isSelected = selected.includes(group.id);
-    return [{
-      text: (isSelected ? '✅ ' : '') + (group.name || group.screen_name || `ID${group.id}`),
-      callback_data: `select_group:${group.id}:${page}`
-    }];
-  });
+const inline_keyboard = pageGroups.map((group, idx) => {
+  const isSelected = selected.includes(group.id);
+  const groupNumber = start + idx + 1;
+  return [{
+    text: (isSelected ? '✅ ' : '') + `${groupNumber}. ` + (group.name || group.screen_name || `ID${group.id}`),
+    callback_data: `select_group:${group.id}:${page}`
+  }];
+});
 
   // Кнопки пагинации
   const navButtons = [];
