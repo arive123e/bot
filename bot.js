@@ -273,12 +273,11 @@ async function showGroupSelection(bot, chatId, userId, allGroups, page = 0) {
   const start = page * MAX_GROUPS_PER_PAGE;
   const pageGroups = allGroups.slice(start, start + MAX_GROUPS_PER_PAGE);
 
-  // Только ОДНА переменная inline_keyboard!
   const inline_keyboard = pageGroups.map((group, idx) => {
     const isSelected = selected.includes(group.id);
     const groupNumber = start + idx + 1;
     return [{
-      text: (isSelected ? '✅ ' : '➡️ ') + `${groupNumber}. ` + (group.name || group.screen_name || `ID${group.id}`),
+      text: (isSelected ? '✅ ' : '') + `${groupNumber}. ` + (group.name || group.screen_name || `ID${group.id}`),
       callback_data: `select_group:${group.id}:${page}`
     }];
   });
@@ -287,7 +286,7 @@ async function showGroupSelection(bot, chatId, userId, allGroups, page = 0) {
   const navButtons = [];
   if (page > 0) navButtons.push({ text: '⬅️', callback_data: `groups_prev:${page - 1}` });
   navButtons.push({ text: '✅ Готово', callback_data: 'groups_done' });
-  if (allGroups.length > start + MAX_GROUPS_PER_PAGE) navButtons.push({ text: callback_data: `groups_next:${page + 1}` });
+  if (allGroups.length > start + MAX_GROUPS_PER_PAGE) navButtons.push({ text: '➡️', callback_data: `groups_next:${page + 1}` });
   inline_keyboard.push(navButtons);
 
   const total = allGroups.length;
@@ -301,3 +300,4 @@ async function showGroupSelection(bot, chatId, userId, allGroups, page = 0) {
     }
   );
 }
+
