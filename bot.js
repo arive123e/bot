@@ -154,7 +154,7 @@ if (query.data === 'groups_done') {
     );
   } else {
     await bot.sendMessage(query.message.chat.id,
-      'Ты ничего не выбрал — но всегда можно вернуться 😉'
+      'ТПока ничего не выбрано, но всегда можно вернуться 😉'
     );
   }
   await bot.answerCallbackQuery(query.id);
