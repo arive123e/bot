@@ -288,7 +288,11 @@ async function showGroupSelection(bot, chatId, userId, allGroups, page = 0) {
   if (allGroups.length > start + MAX_GROUPS_PER_PAGE) navButtons.push({ text: '➡️', callback_data: `groups_next:${page + 1}` });
   inline_keyboard.push(navButtons);
 
-  await bot.sendMessage(chatId, 'Выбери группы для магической ленты:', {
+ const total = allGroups.length;
+ await bot.sendMessage(chatId, 
+  `🦄 У тебя аж <b>${total}</b> магических групп!\nКакой сегодня у нас настрой? Котики? Новости? Тык-тык — выбирай!`, 
+  {
+    parse_mode: 'HTML',
     reply_markup: {
       inline_keyboard
     }
