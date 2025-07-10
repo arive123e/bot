@@ -140,25 +140,22 @@ https://api.fokusnikaltair.xyz/privacy.html`;
 if (query.data === 'groups_done') {
   const selectedGroups = userSelectedGroups[query.from.id] || [];
   if (selectedGroups.length) {
-    // Получаем имена выбранных групп
     const allGroups = userSelectedGroups[query.from.id + '_all'] || [];
-    const names = selectedGroups
+    const selectedGroupsNames = selectedGroups
       .map(id => {
         const group = allGroups.find(g => g.id === id);
         return group ? (group.name || group.screen_name || `ID${id}`) : `ID${id}`;
-      })
-      .join(', ');
-   await bot.sendMessage(query.message.chat.id,
-  `<b>Группы выбраны! ⚡️</b>\nСовсем скоро лента наполнится магией именно для тебя.\n\nЖди новости из:\n${selectedGroupsNames.map(name => `🔸${name}`).join('\n')}`,
-  { parse_mode: 'HTML' }
-);
+      });
+    await bot.sendMessage(query.message.chat.id,
+      `<b>Группы выбраны! ⚡️</b>\nСовсем скоро лента наполнится магией именно для тебя.\n\nЖди новости из:\n${selectedGroupsNames.map(name => `🔸${name}`).join('\n')}`,
+      { parse_mode: 'HTML' }
+    );
   } else {
     await bot.sendMessage(query.message.chat.id,
-      'ТПока ничего не выбрано, но всегда можно вернуться 😉'
+      'Ты ничего не выбрал — но всегда можно вернуться 😉'
     );
   }
   await bot.answerCallbackQuery(query.id);
-  // Здесь можно сохранить выбранные группы пользователя (в базу, файл, etc.)
   return;
 }
 
