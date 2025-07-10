@@ -111,9 +111,12 @@ https://api.fokusnikaltair.xyz/privacy.html`;
       userSelectedGroups[userId] = selected.filter(id => id !== groupIdNum);
     } else {
       if (selected.length >= MAX_GROUPS_FREE) {
-        await bot.answerCallbackQuery(query.id, { text: `Максимум ${MAX_GROUPS_FREE} групп!`, show_alert: true });
-        return;
-      }
+  await bot.answerCallbackQuery(query.id, { 
+    text: '✨ О, сила магии ещё не столь велика!\nМожно выбрать только 3 группы — остальные скоро будут доступны.', 
+    show_alert: true 
+  });
+  return;
+}
       userSelectedGroups[userId].push(groupIdNum);
     }
     
