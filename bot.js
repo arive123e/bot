@@ -148,10 +148,10 @@ if (query.data === 'groups_done') {
         return group ? (group.name || group.screen_name || `ID${id}`) : `ID${id}`;
       })
       .join(', ');
-    await bot.sendMessage(query.message.chat.id,
-      `Группы выбраны! ⚡️\nСовсем скоро лента наполнится магией именно для тебя. Жди новости из: <b>${names}</b> 🦄`,
-      { parse_mode: 'HTML' }
-    );
+   await bot.sendMessage(query.message.chat.id,
+  `<b>Группы выбраны! ⚡️</b>\nСовсем скоро лента наполнится магией именно для тебя.\n\nЖди новости из:\n${selectedGroupsNames.map(name => `🔸${name}`).join('\n')}`,
+  { parse_mode: 'HTML' }
+);
   } else {
     await bot.sendMessage(query.message.chat.id,
       'ТПока ничего не выбрано, но всегда можно вернуться 😉'
