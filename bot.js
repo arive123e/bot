@@ -199,6 +199,9 @@ if (userSelectedGroups[msg.from.id + '_waitingForSearch']) {
     (g.title && g.title.toLowerCase().includes(search))
   );
   console.log('🔍 [ПОИСК] results:', results);
+
+  userSelectedGroups[msg.from.id + '_isSearch'] = true;
+  
   if (!results.length) {
     await bot.sendMessage(msg.chat.id, 'Ничего не найдено! Попробуй другое слово или проверь написание.');
     await showGroupSelection(bot, msg.chat.id, msg.from.id, allGroups, 0, null, true);
