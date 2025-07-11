@@ -340,28 +340,37 @@ async function showGroupSelection(bot, chatId, userId, allGroups, page = 0, mess
       }];
     });
 
-    // Первая строка — пагинация
+    // Кнопки навигации
     const navButtons = [];
     if (page > 0) navButtons.push({ text: '⬅️', callback_data: `groups_prev:${page - 1}` });
     navButtons.push({ text: '✅ Готово', callback_data: 'groups_done' });
     if (allGroups.length > start + MAX_GROUPS_PER_PAGE) navButtons.push({ text: '➡️', callback_data: `groups_next:${page + 1}` });
     inline_keyboard.push(navButtons);
-
-    // Вторая строка — большая кнопка Поиск
     inline_keyboard.push([{ text: '🔎 Поиск', callback_data: 'search_group' }]);
+    text = `🦄 У тебя аж <b>${allGroups.length}</b> магических групп!\nКакой сегодня у нас настрой? Котики? Новости? Тык-тык — выбирай!`;
 
-    text = `🦄 У тебя аж <b>${allGroups.length}</b> магических групп!\nКакой сегодня у нас настрой? Котики? Новости? Тык-тык - выбирай!`;
   } else {
-    // Режим поиска — только три вертикальные кнопки
-    inline_keyboard = [
-      [{ text: '🔎 Поиск', callback_data: 'search_group' }],
-      [{ text: '🔙 Назад', callback_data: 'back_to_all_groups' }],
-      [{ text: '✅ Готово', callback_data: 'groups_done' }]
-    ];
-    text = '🔍 Введи часть названия группы для поиска или вернись назад.';
+    // 🔥 РЕЖИМ ПОИСКА — показываем кнопки найденных групп
+    const start = page * MAX_GROUPS_PER_PAGE;
+    const pageGroups = allGroups.slice(start, start + MAX_GROUPS_PER_PAGE);
+
+    inline_keyboard = pageGroups.map((group, idx) => {
+      const isSelected = selected.includes(group.id);
+      const groupNumber = start + idx + 1;
+      return [{
+        text: (isSelected ? '✅ ' : '') + `${groupNumber}. ` + (group.name || group.screen_name || `ID${group.id}`),
+        callback_data: `select_group:${group.id}:${page}`
+      }];
+    });
+
+    // Кнопки поиска/возврата/готово — отдельной строкой!
+    inline_keyboard.push([{ text: '🔎 Поиск', callback_data: 'search_group' }]);
+    inline_keyboard.push([{ text: '🔙 Назад', callback_data: 'back_to_all_groups' }]);
+    inline_keyboard.push([{ text: '✅ Готово', callback_data: 'groups_done' }]);
+
+    text = `🔍 Найдено групп: <b>${allGroups.length}</b>\nМожешь выбрать одну или вернуться назад.`;
   }
 
-  // --- Сохраняем allGroups и msgId для пользователя! ---
   userSelectedGroups[userId + '_all'] = allGroups;
 
   if (messageId) {
