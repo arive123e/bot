@@ -207,10 +207,14 @@ if (userSelectedGroups[msg.from.id + '_waitingForSearch']) {
   
   if (!results.length) {
     await bot.sendMessage(msg.chat.id, 'Ничего не найдено! Попробуй другое слово или проверь написание.');
-    await showGroupSelection(bot, msg.chat.id, msg.from.id, allGroups, 0, null, true);
+    const selectMsgId = userSelectedGroups[msg.from.id + '_selectMsgId'] || null;
+    await showGroupSelection(bot, msg.chat.id, msg.from.id, results, 0, selectMsgId, true);
+
     return;
   }
-  await showGroupSelection(bot, msg.chat.id, msg.from.id, results, 0, null, true);
+  const selectMsgId = userSelectedGroups[msg.from.id + '_selectMsgId'] || null;
+  await showGroupSelection(bot, msg.chat.id, msg.from.id, results, 0, selectMsgId, true);
+
   return;
 }
 
