@@ -78,6 +78,7 @@ if (query.data === 'back_to_all_groups') {
   const userId = query.from.id;
   const allGroups = userSelectedGroups[userId + '_all'] || [];
   const selectMsgId = userSelectedGroups[userId + '_selectMsgId'];
+  userSelectedGroups[userId + '_isSearch'] = false;
   await showGroupSelection(bot, query.message.chat.id, userId, allGroups, 0, selectMsgId, false);
   await bot.answerCallbackQuery(query.id);
   return;
@@ -125,6 +126,8 @@ https://api.fokusnikaltair.xyz/privacy.html`;
     const allGroups = userSelectedGroups[userId + '_all'] || [];
     const selectMsgId = userSelectedGroups[userId + '_selectMsgId'];
 
+    const isSearch = userSelectedGroups[userId + '_isSearch'] || false; 
+    
      // Логика выбора
     if (selected.includes(groupIdNum)) {
       userSelectedGroups[userId] = selected.filter(id => id !== groupIdNum);
