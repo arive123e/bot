@@ -3,6 +3,17 @@ require('dotenv').config(); // 🔐 Загружаем переменные из
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 
+const fs = require('fs');
+const path = require('path');
+const usersPath = path.join(__dirname, 'users.json');
+
+// Функция для поиска пользователя по tg_id
+function getUserData(tgId) {
+  if (!fs.existsSync(usersPath)) return null;
+  const users = JSON.parse(fs.readFileSync(usersPath, 'utf-8'));
+  return Object.values(users).find(u => String(u.tg_id) === String(tgId) && u.status === 'ok');
+}
+
 const MAX_GROUPS_FREE = 3; // сколько групп выбрать бесплатно
 const userSelectedGroups = {};
 
@@ -16,6 +27,7 @@ if (!token) {
 
 const bot = new TelegramBot(token, { polling: true });
 const replyContext = {}; // Кому отвечает магистр поддержки
+const sentPosts = {}; // { [tgUserId]: { [groupId]: [postId, ...] } }
 
 // =========================
 // 1. СТАРТ, ПОРТАЛ, ПРИВЕТСТВИЕ
@@ -404,3 +416,88 @@ async function showGroupSelection(bot, chatId, userId, allGroups, page = 0, mess
     userSelectedGroups[userId + '_selectMsgId'] = sent.message_id;
   }
 }
+
+// ======== [АВТОМАТИЧЕСКАЯ РАССЫЛКА VK-ПОСТОВ КАЖДЫЕ 30 МИНУТ] ========
+async function sendLatestVkPosts() {
+  // Перебираем всех пользователей, у кого есть выбранные группы
+  for (const userKey in userSelectedGroups) {
+    if (!/^\d+$/.test(userKey)) continue; // Пропускаем служебные ключи
+    const tgUserId = Number(userKey);
+    const selectedGroupIds = userSelectedGroups[tgUserId];
+    if (!Array.isArray(selectedGroupIds) || !selectedGroupIds.length) continue;
+
+   const userData = getUserData(tgUserId);
+if (!userData || !userData.access_token) continue;
+const vkAccessToken = userData.access_token;
+
+
+    // Для каждой выбранной группы
+    for (const groupId of selectedGroupIds) {
+      const owner_id = -Math.abs(groupId); // Важно: минус для паблика!
+      try {
+        const res = await axios.get('https://api.vk.com/method/wall.get', {
+          params: {
+            owner_id,
+            count: 10, // сколько постов брать максимум (хватит)
+            access_token: vkAccessToken, // <<< тут нужен токен!
+            v: '5.131'
+          }
+        });
+        const posts = (res.data.response && res.data.response.items) ? res.data.response.items : [];
+        if (!posts.length) continue;
+
+        // Журнал отправленных постов:
+        sentPosts[tgUserId] = sentPosts[tgUserId] || {};
+        sentPosts[tgUserId][groupId] = sentPosts[tgUserId][groupId] || [];
+
+        // Только новые посты (ещё не отправляли)
+        const newPosts = posts.filter(post => !sentPosts[tgUserId][groupId].includes(post.id));
+        if (!newPosts.length) continue;
+
+        // Отправляем не больше 5 новых за раз
+        const postsToSend = newPosts.slice(0, 5);
+        for (const post of postsToSend) {
+          let text = post.text || '[без текста]';
+          const postUrl = `https://vk.com/wall${owner_id}_${post.id}`;
+          text += `\n\n<a href="${postUrl}">Открыть в VK</a>`;
+          await bot.sendMessage(tgUserId, text, { parse_mode: 'HTML', disable_web_page_preview: false });
+
+          // Вложения
+          if (post.attachments && Array.isArray(post.attachments)) {
+            for (const att of post.attachments) {
+              if (att.type === 'photo' && att.photo && att.photo.sizes) {
+                const photo = att.photo.sizes.sort((a, b) => b.width - a.width)[0];
+                await bot.sendPhoto(tgUserId, photo.url);
+              }
+              if (att.type === 'doc' && att.doc && att.doc.url) {
+                await bot.sendDocument(tgUserId, att.doc.url, { caption: att.doc.title || '' });
+              }
+              if (att.type === 'video' && att.video) {
+                const videoUrl = `https://vk.com/video${att.video.owner_id}_${att.video.id}`;
+                await bot.sendMessage(tgUserId, `🎬 <b>Видео:</b> ${videoUrl}`, { parse_mode: 'HTML' });
+              }
+            }
+          }
+
+          // Добавим id в журнал отправленных
+          sentPosts[tgUserId][groupId].push(post.id);
+          if (sentPosts[tgUserId][groupId].length > 1000) {
+            sentPosts[tgUserId][groupId] = sentPosts[tgUserId][groupId].slice(-1000);
+          }
+        }
+
+        if (newPosts.length > 5) {
+          await bot.sendMessage(
+            tgUserId,
+            `⚡️ В группе ещё ${newPosts.length - 5} новых постов. Хочешь всё — напиши /ещё`
+          );
+        }
+      } catch (e) {
+        console.log('Ошибка отправки постов VK:', e.message || e);
+      }
+    }
+  }
+}
+
+// Запуск каждые 30 минут:
+setInterval(sendLatestVkPosts, 30 * 60 * 1000);
