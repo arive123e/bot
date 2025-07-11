@@ -76,13 +76,15 @@ if (query.data === 'search_group') {
 // --- Возврат к полному списку после поиска ---
 if (query.data === 'back_to_all_groups') {
   const userId = query.from.id;
-  const allGroups = userSelectedGroups[userId + '_all'] || [];
+  // ИСПОЛЬЗУЕМ ПОЛНЫЙ СПИСОК!
+  const allGroups = userSelectedGroups[userId + '_fullList'] || [];
   const selectMsgId = userSelectedGroups[userId + '_selectMsgId'];
   userSelectedGroups[userId + '_isSearch'] = false;
   await showGroupSelection(bot, query.message.chat.id, userId, allGroups, 0, selectMsgId, false);
   await bot.answerCallbackQuery(query.id);
   return;
 }
+
 
   // --- Магическая безопасность (политика) ---
   if (query.data === 'privacy') {
@@ -281,6 +283,10 @@ if (msg.text === 'Групписо призывус! 📜') {
 
     // Сохраняем все группы пользователя
     userSelectedGroups[msg.from.id] = [];
+
+       // сохраняем "основной" полный список
+    userSelectedGroups[msg.from.id + '_all'] = res.data.groups;
+    userSelectedGroups[msg.from.id + '_fullList'] = res.data.groups;
 
     // Вызываем функцию, которая покажет кнопки с группами (по 10 штук, первая страница)
     userSelectedGroups[msg.from.id + '_all'] = res.data.groups;
