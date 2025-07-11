@@ -64,6 +64,25 @@ bot.onText(/\/start/, async (msg) => { // <--- вот здесь добавь as
 // =========================
 
 bot.on('callback_query', async (query) => {
+
+  // --- Поиск группы ---
+if (query.data === 'search_group') {
+  await bot.sendMessage(query.message.chat.id, '🔍 Введи часть названия группы для поиска:');
+  userSelectedGroups[query.from.id + '_waitingForSearch'] = true;
+  await bot.answerCallbackQuery(query.id);
+  return;
+}
+
+// --- Возврат к полному списку после поиска ---
+if (query.data === 'back_to_all_groups') {
+  const userId = query.from.id;
+  const allGroups = userSelectedGroups[userId + '_all'] || [];
+  const selectMsgId = userSelectedGroups[userId + '_selectMsgId'];
+  await showGroupSelection(bot, query.message.chat.id, userId, allGroups, 0, selectMsgId, false);
+  await bot.answerCallbackQuery(query.id);
+  return;
+}
+
   // --- Магическая безопасность (политика) ---
   if (query.data === 'privacy') {
     const privacyText = `Ваша приватность - под надёжной защитой магии и современных технологий 🛡
@@ -167,6 +186,26 @@ if (query.data === 'groups_done') {
 // =========================
 
 bot.on('message', async (msg) => {
+ // --- Поиск группы ---
+if (userSelectedGroups[msg.from.id + '_waitingForSearch']) {
+  delete userSelectedGroups[msg.from.id + '_waitingForSearch'];
+  const allGroups = userSelectedGroups[msg.from.id + '_all'] || [];
+  const search = msg.text.trim().toLowerCase();
+  const results = allGroups.filter(g =>
+    (g.name && g.name.toLowerCase().includes(search)) ||
+    (g.screen_name && g.screen_name.toLowerCase().includes(search))
+  );
+  if (!results.length) {
+    await bot.sendMessage(msg.chat.id, 'Ничего не найдено! Попробуй другое слово или проверь написание.');
+    // Покажи меню поиска снова
+    await showGroupSelection(bot, msg.chat.id, msg.from.id, allGroups, 0, null, true);
+    return;
+  }
+  await showGroupSelection(bot, msg.chat.id, msg.from.id, results, 0, null, true);
+  return;
+}
+
+
   // 1. Завершить переход
   if (msg.text === 'Завершить переход🔱') {
     // Удаляем предыдущее сообщение "Подожди, магия настраивается ✨"
@@ -276,36 +315,51 @@ bot.onText(/\/support/, (msg) => {
   );
 });
 
-async function showGroupSelection(bot, chatId, userId, allGroups, page = 0, messageId = null) {
+async function showGroupSelection(bot, chatId, userId, allGroups, page = 0, messageId = null, isSearch = false) {
   const MAX_GROUPS_PER_PAGE = 10;
   const selected = userSelectedGroups[userId] || [];
-  const start = page * MAX_GROUPS_PER_PAGE;
-  const pageGroups = allGroups.slice(start, start + MAX_GROUPS_PER_PAGE);
+  let inline_keyboard = [];
+  let text = "";
 
-  const inline_keyboard = pageGroups.map((group, idx) => {
-    const isSelected = selected.includes(group.id);
-    const groupNumber = start + idx + 1;
-    return [{
-      text: (isSelected ? '✅ ' : '') + `${groupNumber}. ` + (group.name || group.screen_name || `ID${group.id}`),
-      callback_data: `select_group:${group.id}:${page}`
-    }];
-  });
+  if (!isSearch) {
+    // Обычный режим: пагинация и выбор
+    const start = page * MAX_GROUPS_PER_PAGE;
+    const pageGroups = allGroups.slice(start, start + MAX_GROUPS_PER_PAGE);
 
-  // Кнопки пагинации
-  const navButtons = [];
-  if (page > 0) navButtons.push({ text: '⬅️', callback_data: `groups_prev:${page - 1}` });
-  navButtons.push({ text: '✅ Готово', callback_data: 'groups_done' });
-  if (allGroups.length > start + MAX_GROUPS_PER_PAGE) navButtons.push({ text: '➡️', callback_data: `groups_next:${page + 1}` });
-  inline_keyboard.push(navButtons);
+    inline_keyboard = pageGroups.map((group, idx) => {
+      const isSelected = selected.includes(group.id);
+      const groupNumber = start + idx + 1;
+      return [{
+        text: (isSelected ? '✅ ' : '') + `${groupNumber}. ` + (group.name || group.screen_name || `ID${group.id}`),
+        callback_data: `select_group:${group.id}:${page}`
+      }];
+    });
+
+    // Первая строка — пагинация
+    const navButtons = [];
+    if (page > 0) navButtons.push({ text: '⬅️', callback_data: `groups_prev:${page - 1}` });
+    navButtons.push({ text: '✅ Готово', callback_data: 'groups_done' });
+    if (allGroups.length > start + MAX_GROUPS_PER_PAGE) navButtons.push({ text: '➡️', callback_data: `groups_next:${page + 1}` });
+    inline_keyboard.push(navButtons);
+
+    // Вторая строка — большая кнопка Поиск
+    inline_keyboard.push([{ text: '🔎 Поиск', callback_data: 'search_group' }]);
+
+    text = `🦄 У тебя аж <b>${allGroups.length}</b> магических групп!\nКакой сегодня у нас настрой? Котики? Новости? Тык-тык — выбирай!`;
+  } else {
+    // Режим поиска — только три вертикальные кнопки
+    inline_keyboard = [
+      [{ text: '🔎 Поиск', callback_data: 'search_group' }],
+      [{ text: '🔙 Назад', callback_data: 'back_to_all_groups' }],
+      [{ text: '✅ Готово', callback_data: 'groups_done' }]
+    ];
+    text = '🔍 Введи часть названия группы для поиска или вернись назад.';
+  }
 
   // --- Сохраняем allGroups и msgId для пользователя! ---
   userSelectedGroups[userId + '_all'] = allGroups;
 
-  const total = allGroups.length;
-  const text = `🦄 У тебя аж <b>${total}</b> магических групп!\nКакой сегодня у нас настрой? Котики? Новости? Тык-тык — выбирай!`;
-
   if (messageId) {
-    // Если messageId передан — редактируем сообщение!
     await bot.editMessageText(text, {
       chat_id: chatId,
       message_id: messageId,
@@ -313,12 +367,10 @@ async function showGroupSelection(bot, chatId, userId, allGroups, page = 0, mess
       reply_markup: { inline_keyboard }
     });
   } else {
-    // Иначе отправляем новое сообщение (при первом запуске)
     const sent = await bot.sendMessage(chatId, text, {
       parse_mode: 'HTML',
       reply_markup: { inline_keyboard }
     });
-    // --- Сохраняем ID сообщения для дальнейших редактирований ---
     userSelectedGroups[userId + '_selectMsgId'] = sent.message_id;
   }
 }
