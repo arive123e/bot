@@ -190,20 +190,24 @@ bot.on('message', async (msg) => {
 if (userSelectedGroups[msg.from.id + '_waitingForSearch']) {
   delete userSelectedGroups[msg.from.id + '_waitingForSearch'];
   const allGroups = userSelectedGroups[msg.from.id + '_all'] || [];
+  console.log('🔍 [ПОИСК] allGroups:', allGroups);
   const search = msg.text.trim().toLowerCase();
+  console.log('🔍 [ПОИСК] search text:', search);
   const results = allGroups.filter(g =>
     (g.name && g.name.toLowerCase().includes(search)) ||
-    (g.screen_name && g.screen_name.toLowerCase().includes(search))
+    (g.screen_name && g.screen_name.toLowerCase().includes(search)) ||
+    (g.title && g.title.toLowerCase().includes(search))
   );
+  console.log('🔍 [ПОИСК] results:', results);
   if (!results.length) {
     await bot.sendMessage(msg.chat.id, 'Ничего не найдено! Попробуй другое слово или проверь написание.');
-    // Покажи меню поиска снова
     await showGroupSelection(bot, msg.chat.id, msg.from.id, allGroups, 0, null, true);
     return;
   }
   await showGroupSelection(bot, msg.chat.id, msg.from.id, results, 0, null, true);
   return;
 }
+
 
 
   // 1. Завершить переход
