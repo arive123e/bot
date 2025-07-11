@@ -143,7 +143,7 @@ https://api.fokusnikaltair.xyz/privacy.html`;
     }
     
     // Обновляем инлайн-кнопки
-    await showGroupSelection(bot, query.message.chat.id, userId, allGroups, Number(page), selectMsgId);
+     await showGroupSelection(bot, query.message.chat.id, userId, allGroups, Number(page), selectMsgId, isSearch);
     await bot.answerCallbackQuery(query.id);
     return;
   }
