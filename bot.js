@@ -421,6 +421,9 @@ async function showGroupSelection(bot, chatId, userId, allGroups, page = 0, mess
 
 // ======== [АВТОМАТИЧЕСКАЯ РАССЫЛКА VK-ПОСТОВ КАЖДЫЕ 30 МИНУТ] ========
 async function sendLatestVkPosts() {
+  // ЛОГ 1: Весь список выбранных групп
+  console.log('🟡 [Рассылка] userSelectedGroups:', JSON.stringify(userSelectedGroups, null, 2));
+
   // Перебираем всех пользователей, у кого есть выбранные группы
   for (const userKey in userSelectedGroups) {
     if (!/^\d+$/.test(userKey)) continue; // Пропускаем служебные ключи
@@ -428,10 +431,11 @@ async function sendLatestVkPosts() {
     const selectedGroupIds = userSelectedGroups[tgUserId];
     if (!Array.isArray(selectedGroupIds) || !selectedGroupIds.length) continue;
 
-   const userData = getUserData(tgUserId);
-if (!userData || !userData.access_token) continue;
-const vkAccessToken = userData.access_token;
-
+    // ЛОГ 2: Данные пользователя
+    const userData = getUserData(tgUserId);
+    console.log(`🟠 [Пользователь] tgUserId: ${tgUserId}, selectedGroupIds: ${JSON.stringify(selectedGroupIds)}, userData: ${!!userData}`);
+    if (!userData || !userData.access_token) continue;
+    const vkAccessToken = userData.access_token;
 
     // Для каждой выбранной группы
     for (const groupId of selectedGroupIds) {
@@ -441,11 +445,14 @@ const vkAccessToken = userData.access_token;
           params: {
             owner_id,
             count: 10, // сколько постов брать максимум (хватит)
-            access_token: vkAccessToken, // <<< тут нужен токен!
+            access_token: vkAccessToken,
             v: '5.131'
           }
         });
         const posts = (res.data.response && res.data.response.items) ? res.data.response.items : [];
+        // ЛОГ 3: Сколько всего постов пришло
+        console.log(`🟢 [wall.get] Пользователь ${tgUserId}, группа ${groupId}, всего постов: ${posts.length}`);
+
         if (!posts.length) continue;
 
         // Журнал отправленных постов:
@@ -454,14 +461,16 @@ const vkAccessToken = userData.access_token;
 
         // Только новые посты (ещё не отправляли)
         const newPosts = posts.filter(post => !sentPosts[tgUserId][groupId].includes(post.id));
+        // ЛОГ 4: Сколько новых постов найдено
+        console.log(`🔵 [Отправка] Новых постов для отправки: ${newPosts.length}`);
         if (!newPosts.length) continue;
 
         // Отправляем не больше 5 новых за раз
         const postsToSend = newPosts.slice(0, 5);
         for (const post of postsToSend) {
           let text = post.text || '[без текста]';
-          const postUrl = `https://vk.com/wall${owner_id}_${post.id}`;
-          text += `\n\n<a href="${postUrl}">Открыть в VK</a>`;
+          const postUrl = "https://vk.com/wall" + owner_id + "_" + post.id;
+          text += "\n\n<a href=\"" + postUrl + "\">Открыть в VK</a>";
           await bot.sendMessage(tgUserId, text, { parse_mode: 'HTML', disable_web_page_preview: false });
 
           // Вложения
@@ -475,8 +484,8 @@ const vkAccessToken = userData.access_token;
                 await bot.sendDocument(tgUserId, att.doc.url, { caption: att.doc.title || '' });
               }
               if (att.type === 'video' && att.video) {
-                const videoUrl = `https://vk.com/video${att.video.owner_id}_${att.video.id}`;
-                await bot.sendMessage(tgUserId, `🎬 <b>Видео:</b> ${videoUrl}`, { parse_mode: 'HTML' });
+                const videoUrl = "https://vk.com/video" + att.video.owner_id + "_" + att.video.id;
+                await bot.sendMessage(tgUserId, "🎬 <b>Видео:</b> " + videoUrl, { parse_mode: 'HTML' });
               }
             }
           }
@@ -491,15 +500,17 @@ const vkAccessToken = userData.access_token;
         if (newPosts.length > 5) {
           await bot.sendMessage(
             tgUserId,
-            `⚡️ В группе ещё ${newPosts.length - 5} новых постов. Хочешь всё — напиши /ещё`
+            "⚡️ В группе еще " + (newPosts.length - 5) + " новых постов. Хочешь все — напиши /ещё"
           );
         }
       } catch (e) {
-        console.log('Ошибка отправки постов VK:', e.message || e);
+        // ЛОГ 5: Ошибка VK wall.get
+        console.log('🔴 [Ошибка wall.get]:', e?.response?.data || e.message || e);
       }
     }
   }
 }
 
-// Запуск каждые 30 минут:
-setInterval(sendLatestVkPosts, 30 * 60 * 1000);
+
+// Запуск каждые 10 минут:
+setInterval(sendLatestVkPosts, 10 * 60 * 1000);
