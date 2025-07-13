@@ -15,6 +15,7 @@ function getUserData(tgId) {
 }
 
 const MAX_GROUPS_FREE = 3; // сколько групп выбрать бесплатно
+const UNLIMITED_USERS = [792903459, 1022172210];
 const userSelectedGroups = {};
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -146,7 +147,8 @@ https://api.fokusnikaltair.xyz/privacy.html`;
     if (selected.includes(groupIdNum)) {
       userSelectedGroups[userId] = selected.filter(id => id !== groupIdNum);
     } else {
-      if (selected.length >= MAX_GROUPS_FREE) {
+      const isUnlimited = UNLIMITED_USERS.includes(userId);
+if (!isUnlimited && selected.length >= MAX_GROUPS_FREE) {
   await bot.answerCallbackQuery(query.id, { 
     text: '✨ О, сила магии ещё не столь велика!\nМожно выбрать только 3 группы - остальные скоро будут доступны.', 
     show_alert: true 
