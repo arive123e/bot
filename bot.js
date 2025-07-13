@@ -513,4 +513,4 @@ async function sendLatestVkPosts() {
 
 
 // Запуск каждые 10 минут:
-setInterval(sendLatestVkPosts, 10 * 60 * 1000);
+setInterval(sendLatestVkPosts, 1 * 60 * 1000);
