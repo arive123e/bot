@@ -446,62 +446,60 @@ async function sendLatestVkPosts() {
     for (const groupId of selectedGroupIds) {
       const owner_id = -Math.abs(groupId); // Важно: минус для паблика!
       try {
-        const res = await axios.get('https://api.vk.com/method/wall.get', {
-          params: {
-            owner_id,
-            count: 1, // сколько постов брать максимум (хватит)
-            access_token: vkAccessToken,
-            v: '5.199'
-          }
-        });
-       const posts = (res.data.response && res.data.response.items) ? res.data.response.items : [];
-// Отфильтровать рекламные посты
-const nonAdPosts = posts.filter(post => !post.marked_as_ads);
-// ЛОГ 3: Сколько всего постов пришло (до фильтра)
-console.log(`🟢 [wall.get] Пользователь ${tgUserId}, группа ${groupId}, всего постов: ${posts.length}`);
+  const res = await axios.get('https://api.vk.com/method/wall.get', {
+    params: {
+      owner_id,
+      count: 1,
+      access_token: vkAccessToken,
+      v: '5.199'
+    }
+  });
+  const posts = (res.data.response && res.data.response.items) ? res.data.response.items : [];
+  const nonAdPosts = posts.filter(post => !post.marked_as_ads);
+  console.log(`🟢 [wall.get] Пользователь ${tgUserId}, группа ${groupId}, всего постов: ${posts.length}`);
 
-// Теперь работаем только с nonAdPosts
-if (!nonAdPosts.length) continue;
+  if (!nonAdPosts.length) continue;
 
-// Журнал отправленных постов:
-sentPosts[tgUserId] = sentPosts[tgUserId] || {};
-sentPosts[tgUserId][groupId] = sentPosts[tgUserId][groupId] || [];
+  sentPosts[tgUserId] = sentPosts[tgUserId] || {};
+  sentPosts[tgUserId][groupId] = sentPosts[tgUserId][groupId] || [];
 
-// Только новые посты (ещё не отправляли)
-const newPosts = nonAdPosts.filter(post => !sentPosts[tgUserId][groupId].includes(post.id));
-// ЛОГ 4: Сколько новых постов найдено
-console.log(`🔵 [Отправка] Новых постов для отправки: ${newPosts.length}`);
-if (!newPosts.length) continue;
+  const newPosts = nonAdPosts.filter(post => !sentPosts[tgUserId][groupId].includes(post.id));
+  console.log(`🔵 [Отправка] Новых постов для отправки: ${newPosts.length}`);
+  if (!newPosts.length) continue;
 
-// Отправляем не больше 1 нового за раз
-const postsToSend = newPosts.slice(0, 1);
-for (const post of postsToSend) {
-  let text = post.text || '[без текста]';
-  const postUrl = "https://vk.com/wall" + owner_id + "_" + post.id;
-  text += "\n\n<a href=\"" + postUrl + "\">Открыть в VK</a>";
-  await bot.sendMessage(tgUserId, text, { parse_mode: 'HTML', disable_web_page_preview: false });
+  const postsToSend = newPosts.slice(0, 1);
+  for (const post of postsToSend) {
+    let text = post.text || '[без текста]';
+    const postUrl = "https://vk.com/wall" + owner_id + "_" + post.id;
+    text += "\n\n<a href=\"" + postUrl + "\">Открыть в VK</a>";
+    await bot.sendMessage(tgUserId, text, { parse_mode: 'HTML', disable_web_page_preview: false });
 
-  // Вложения
-  if (post.attachments && Array.isArray(post.attachments)) {
-    for (const att of post.attachments) {
-      if (att.type === 'photo' && att.photo && att.photo.sizes) {
-        const photo = att.photo.sizes.sort((a, b) => b.width - a.width)[0];
-        await bot.sendPhoto(tgUserId, photo.url);
-      }
-      if (att.type === 'doc' && att.doc && att.doc.url) {
-        await bot.sendDocument(tgUserId, att.doc.url, { caption: att.doc.title || '' });
-      }
-      if (att.type === 'video' && att.video) {
-        const videoUrl = "https://vk.com/video" + att.video.owner_id + "_" + att.video.id;
-        await bot.sendMessage(tgUserId, "🎬 <b>Видео:</b> " + videoUrl, { parse_mode: 'HTML' });
+    if (post.attachments && Array.isArray(post.attachments)) {
+      for (const att of post.attachments) {
+        if (att.type === 'photo' && att.photo && att.photo.sizes) {
+          const photo = att.photo.sizes.sort((a, b) => b.width - a.width)[0];
+          await bot.sendPhoto(tgUserId, photo.url);
+        }
+        if (att.type === 'doc' && att.doc && att.doc.url) {
+          await bot.sendDocument(tgUserId, att.doc.url, { caption: att.doc.title || '' });
+        }
+        if (att.type === 'video' && att.video) {
+          const videoUrl = "https://vk.com/video" + att.video.owner_id + "_" + att.video.id;
+          await bot.sendMessage(tgUserId, "🎬 <b>Видео:</b> " + videoUrl, { parse_mode: 'HTML' });
+        }
       }
     }
-  }
 
-  // Добавим id в журнал отправленных
-  sentPosts[tgUserId][groupId].push(post.id);
-  if (sentPosts[tgUserId][groupId].length > 1000) {
-    sentPosts[tgUserId][groupId] = sentPosts[tgUserId][groupId].slice(-1000);
+    sentPosts[tgUserId][groupId].push(post.id);
+    if (sentPosts[tgUserId][groupId].length > 1000) {
+      sentPosts[tgUserId][groupId] = sentPosts[tgUserId][groupId].slice(-1000);
+    }
+  }
+} catch (e) {
+  // Вот твой обработчик ошибок!
+  console.log('🔴 [Ошибка wall.get]:', e?.response?.data || e.message || e);
+}
+
         }
       }
     }
