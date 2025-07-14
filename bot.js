@@ -505,14 +505,9 @@ for (const post of postsToSend) {
   }
 }
 
-if (newPosts.length > 5) {
-  await bot.sendMessage(
-    tgUserId,
-    "⚡️ В группе еще " + (newPosts.length - 5) + " новых постов. Хочешь все — напиши /ещё"
-  );
+    }
+  }
 }
 
-
-
-// Запуск каждые 10 минут:
+// <-- вот тут, вне функции!
 setInterval(sendLatestVkPosts, 10 * 60 * 1000);
