@@ -5,7 +5,7 @@ const axios = require('axios');
 
 const fs = require('fs');
 const path = require('path');
-const usersPath = path.join(__dirname, 'users.json');
+const usersPath = '/root/vk-backend/users.json';
 
 // Функция для поиска пользователя по tg_id
 function getUserData(tgId) {
