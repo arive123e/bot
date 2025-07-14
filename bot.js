@@ -421,19 +421,24 @@ async function showGroupSelection(bot, chatId, userId, allGroups, page = 0, mess
 
 // ======== [АВТОМАТИЧЕСКАЯ РАССЫЛКА VK-ПОСТОВ КАЖДЫЕ 30 МИНУТ] ========
 async function sendLatestVkPosts() {
-  // ЛОГ 1: Весь список выбранных групп
-  console.log('🟡 [Рассылка] userSelectedGroups:', JSON.stringify(userSelectedGroups, null, 2));
+  console.log('[DEBUG] Содержимое users.json:', fs.readFileSync(usersPath, 'utf-8'));
+
+
 
   // Перебираем всех пользователей, у кого есть выбранные группы
   for (const userKey in userSelectedGroups) {
     if (!/^\d+$/.test(userKey)) continue; // Пропускаем служебные ключи
     const tgUserId = Number(userKey);
+
+     
     const selectedGroupIds = userSelectedGroups[tgUserId];
     if (!Array.isArray(selectedGroupIds) || !selectedGroupIds.length) continue;
 
     // ЛОГ 2: Данные пользователя
+    console.log('[DEBUG] tgUserId:', tgUserId, 'typeof:', typeof tgUserId);
     const userData = getUserData(tgUserId);
     console.log(`🟠 [Пользователь] tgUserId: ${tgUserId}, selectedGroupIds: ${JSON.stringify(selectedGroupIds)}, userData: ${!!userData}`);
+    console.log('[DEBUG] userData:', userData);
     if (!userData || !userData.access_token) continue;
     const vkAccessToken = userData.access_token;
 
