@@ -504,7 +504,7 @@ async function sendLatestVkPosts() {
       }
     }
   }
-}
+
 
 // Вне функции:
 setInterval(sendLatestVkPosts, 10 * 60 * 1000);
