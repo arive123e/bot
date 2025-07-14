@@ -502,7 +502,7 @@ async function sendLatestVkPosts() {
       }
     }
   }
-}  // ← Закрывает sendLatestVkPosts
+
 
 setInterval(sendLatestVkPosts, 10 * 60 * 1000);
 
