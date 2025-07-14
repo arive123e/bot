@@ -449,72 +449,69 @@ async function sendLatestVkPosts() {
         const res = await axios.get('https://api.vk.com/method/wall.get', {
           params: {
             owner_id,
-            count: 10, // сколько постов брать максимум (хватит)
+            count: 1, // сколько постов брать максимум (хватит)
             access_token: vkAccessToken,
-            v: '5.131'
+            v: '5.199'
           }
         });
-        const posts = (res.data.response && res.data.response.items) ? res.data.response.items : [];
-        // ЛОГ 3: Сколько всего постов пришло
-        console.log(`🟢 [wall.get] Пользователь ${tgUserId}, группа ${groupId}, всего постов: ${posts.length}`);
+       const posts = (res.data.response && res.data.response.items) ? res.data.response.items : [];
+// Отфильтровать рекламные посты
+const nonAdPosts = posts.filter(post => !post.marked_as_ads);
+// ЛОГ 3: Сколько всего постов пришло (до фильтра)
+console.log(`🟢 [wall.get] Пользователь ${tgUserId}, группа ${groupId}, всего постов: ${posts.length}`);
 
-        if (!posts.length) continue;
+// Теперь работаем только с nonAdPosts
+if (!nonAdPosts.length) continue;
 
-        // Журнал отправленных постов:
-        sentPosts[tgUserId] = sentPosts[tgUserId] || {};
-        sentPosts[tgUserId][groupId] = sentPosts[tgUserId][groupId] || [];
+// Журнал отправленных постов:
+sentPosts[tgUserId] = sentPosts[tgUserId] || {};
+sentPosts[tgUserId][groupId] = sentPosts[tgUserId][groupId] || [];
 
-        // Только новые посты (ещё не отправляли)
-        const newPosts = posts.filter(post => !sentPosts[tgUserId][groupId].includes(post.id));
-        // ЛОГ 4: Сколько новых постов найдено
-        console.log(`🔵 [Отправка] Новых постов для отправки: ${newPosts.length}`);
-        if (!newPosts.length) continue;
+// Только новые посты (ещё не отправляли)
+const newPosts = nonAdPosts.filter(post => !sentPosts[tgUserId][groupId].includes(post.id));
+// ЛОГ 4: Сколько новых постов найдено
+console.log(`🔵 [Отправка] Новых постов для отправки: ${newPosts.length}`);
+if (!newPosts.length) continue;
 
-        // Отправляем не больше 5 новых за раз
-        const postsToSend = newPosts.slice(0, 5);
-        for (const post of postsToSend) {
-          let text = post.text || '[без текста]';
-          const postUrl = "https://vk.com/wall" + owner_id + "_" + post.id;
-          text += "\n\n<a href=\"" + postUrl + "\">Открыть в VK</a>";
-          await bot.sendMessage(tgUserId, text, { parse_mode: 'HTML', disable_web_page_preview: false });
+// Отправляем не больше 1 нового за раз
+const postsToSend = newPosts.slice(0, 1);
+for (const post of postsToSend) {
+  let text = post.text || '[без текста]';
+  const postUrl = "https://vk.com/wall" + owner_id + "_" + post.id;
+  text += "\n\n<a href=\"" + postUrl + "\">Открыть в VK</a>";
+  await bot.sendMessage(tgUserId, text, { parse_mode: 'HTML', disable_web_page_preview: false });
 
-          // Вложения
-          if (post.attachments && Array.isArray(post.attachments)) {
-            for (const att of post.attachments) {
-              if (att.type === 'photo' && att.photo && att.photo.sizes) {
-                const photo = att.photo.sizes.sort((a, b) => b.width - a.width)[0];
-                await bot.sendPhoto(tgUserId, photo.url);
-              }
-              if (att.type === 'doc' && att.doc && att.doc.url) {
-                await bot.sendDocument(tgUserId, att.doc.url, { caption: att.doc.title || '' });
-              }
-              if (att.type === 'video' && att.video) {
-                const videoUrl = "https://vk.com/video" + att.video.owner_id + "_" + att.video.id;
-                await bot.sendMessage(tgUserId, "🎬 <b>Видео:</b> " + videoUrl, { parse_mode: 'HTML' });
-              }
-            }
-          }
-
-          // Добавим id в журнал отправленных
-          sentPosts[tgUserId][groupId].push(post.id);
-          if (sentPosts[tgUserId][groupId].length > 1000) {
-            sentPosts[tgUserId][groupId] = sentPosts[tgUserId][groupId].slice(-1000);
-          }
-        }
-
-        if (newPosts.length > 5) {
-          await bot.sendMessage(
-            tgUserId,
-            "⚡️ В группе еще " + (newPosts.length - 5) + " новых постов. Хочешь все — напиши /ещё"
-          );
-        }
-      } catch (e) {
-        // ЛОГ 5: Ошибка VK wall.get
-        console.log('🔴 [Ошибка wall.get]:', e?.response?.data || e.message || e);
+  // Вложения
+  if (post.attachments && Array.isArray(post.attachments)) {
+    for (const att of post.attachments) {
+      if (att.type === 'photo' && att.photo && att.photo.sizes) {
+        const photo = att.photo.sizes.sort((a, b) => b.width - a.width)[0];
+        await bot.sendPhoto(tgUserId, photo.url);
+      }
+      if (att.type === 'doc' && att.doc && att.doc.url) {
+        await bot.sendDocument(tgUserId, att.doc.url, { caption: att.doc.title || '' });
+      }
+      if (att.type === 'video' && att.video) {
+        const videoUrl = "https://vk.com/video" + att.video.owner_id + "_" + att.video.id;
+        await bot.sendMessage(tgUserId, "🎬 <b>Видео:</b> " + videoUrl, { parse_mode: 'HTML' });
       }
     }
   }
+
+  // Добавим id в журнал отправленных
+  sentPosts[tgUserId][groupId].push(post.id);
+  if (sentPosts[tgUserId][groupId].length > 1000) {
+    sentPosts[tgUserId][groupId] = sentPosts[tgUserId][groupId].slice(-1000);
+  }
 }
+
+if (newPosts.length > 5) {
+  await bot.sendMessage(
+    tgUserId,
+    "⚡️ В группе еще " + (newPosts.length - 5) + " новых постов. Хочешь все — напиши /ещё"
+  );
+}
+
 
 
 // Запуск каждые 10 минут:
