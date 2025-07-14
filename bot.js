@@ -502,11 +502,12 @@ for (const post of postsToSend) {
   sentPosts[tgUserId][groupId].push(post.id);
   if (sentPosts[tgUserId][groupId].length > 1000) {
     sentPosts[tgUserId][groupId] = sentPosts[tgUserId][groupId].slice(-1000);
-   }
+        }
+      }
     }
-   }
- }
-}    
+  }
+}
 
 // Вне функции:
 setInterval(sendLatestVkPosts, 10 * 60 * 1000);
+
