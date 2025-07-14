@@ -498,14 +498,11 @@ async function sendLatestVkPosts() {
 } catch (e) {
   // Вот твой обработчик ошибок!
   console.log('🔴 [Ошибка wall.get]:', e?.response?.data || e.message || e);
-}
-
         }
       }
     }
   }
+}  // ← Закрывает sendLatestVkPosts
 
-
-// Вне функции:
 setInterval(sendLatestVkPosts, 10 * 60 * 1000);
 
