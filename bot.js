@@ -30,6 +30,24 @@ const bot = new TelegramBot(token, { polling: true });
 const replyContext = {}; // Кому отвечает магистр поддержки
 const sentPosts = {}; // { [tgUserId]: { [groupId]: [postId, ...] } }
 
+const MAX_TEXT_LENGTH = 2000;
+
+// === ВСТАВЬ ГДЕ-ТО ЗДЕСЬ (после констант, но до основной логики) ===
+function formatVkPost(text, postUrl) {
+  let needCut = text.length > MAX_TEXT_LENGTH;
+  let visibleText = needCut
+    ? text.slice(0, MAX_TEXT_LENGTH) + '\n\n...Продолжение ⬇️'
+    : text;
+
+  return {
+    text: visibleText,
+    buttons: [
+      [{ text: "✨ Призвать весь пост в VK", url: postUrl }]
+    ]
+  };
+}
+
+
 // =========================
 // 1. СТАРТ, ПОРТАЛ, ПРИВЕТСТВИЕ
 // =========================
@@ -455,11 +473,13 @@ async function sendFreshestPostForUser(tgUserId) {
       }
     } catch (e) { }
   }
-  if (freshestPost) {
-    let text = freshestPost.text || '[без текста]';
-    const postUrl = "https://vk.com/wall" + -Math.abs(freshestGroup) + "_" + freshestPost.id;
-    text += "\n\n<a href=\"" + postUrl + "\">Открыть в VK</a>";
-    await bot.sendMessage(tgUserId, text, { parse_mode: 'HTML', disable_web_page_preview: false });
+  const postUrl = "https://vk.com/wall" + -Math.abs(freshestGroup) + "_" + freshestPost.id;
+    const { text, buttons } = formatVkPost(freshestPost.text || '[без текста]', postUrl);
+    await bot.sendMessage(tgUserId, text, {
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: buttons },
+      disable_web_page_preview: false });
+    
     if (freshestPost.attachments && Array.isArray(freshestPost.attachments)) {
       for (const att of freshestPost.attachments) {
         if (att.type === 'photo' && att.photo && att.photo.sizes) {
@@ -545,7 +565,7 @@ for (const groupId of selectedGroupIds) {
       const post = allNewPosts[0];
       let text = post.text || '[без текста]';
       const postUrl = "https://vk.com/wall" + post.owner_id + "_" + post.id;
-      text += "\n\n<a href=\"" + postUrl + "\">Открыть в VK</a>";
+      text += "\n\n<a href=\"";
       await bot.sendMessage(tgUserId, text, { parse_mode: 'HTML', disable_web_page_preview: false });
 
       // Вложения
