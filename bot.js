@@ -562,11 +562,15 @@ for (const groupId of selectedGroupIds) {
 
     // 4. Отправляем только ОДИН (самый ранний)
     if (allNewPosts.length) {
-      const post = allNewPosts[0];
-      let text = post.text || '[без текста]';
-      const postUrl = "https://vk.com/wall" + post.owner_id + "_" + post.id;
-      text += "\n\n<a href=\"";
-      await bot.sendMessage(tgUserId, text, { parse_mode: 'HTML', disable_web_page_preview: false });
+  const post = allNewPosts[0];
+  const postUrl = "https://vk.com/wall" + post.owner_id + "_" + post.id;
+  const { text, buttons } = formatVkPost(post.text || '[без текста]', postUrl);
+
+  await bot.sendMessage(tgUserId, text, {
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: buttons },
+    disable_web_page_preview: false
+  });
 
       // Вложения
       if (post.attachments && Array.isArray(post.attachments)) {
