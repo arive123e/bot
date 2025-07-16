@@ -462,8 +462,12 @@ async function sendFreshestPostForUser(tgUserId) {
       const res = await axios.get('https://api.vk.com/method/wall.get', {
         params: { owner_id, count: 1, access_token: vkAccessToken, v: '5.199' }
       });
+      
       const posts = (res.data.response && res.data.response.items) ? res.data.response.items : [];
-      const nonAdPosts = posts.filter(post => !post.marked_as_ads);
+const nonAdPosts = posts.filter(
+  post => !post.marked_as_ads && !post.is_pinned // <-- исключаем закреплённые!
+);
+
       if (nonAdPosts.length) {
         const post = nonAdPosts[0];
         if (!freshestPost || post.date > freshestPost.date) {
@@ -524,8 +528,11 @@ async function sendLatestVkPosts() {
             v: '5.199'
           }
         });
-        const posts = (res.data.response && res.data.response.items) ? res.data.response.items : [];
-        const nonAdPosts = posts.filter(post => !post.marked_as_ads);
+const posts = (res.data.response && res.data.response.items) ? res.data.response.items : [];
+const nonAdPosts = posts.filter(
+  post => !post.marked_as_ads && !post.is_pinned // <-- исключаем закреплённые!
+);
+
 
         sentPosts[tgUserId] = sentPosts[tgUserId] || {};
         sentPosts[tgUserId][groupId] = sentPosts[tgUserId][groupId] || [];
