@@ -188,6 +188,9 @@ if (query.data === 'groups_done') {
       `<b>Группы выбраны! ⚡️</b>\nСовсем скоро лента наполнится магией именно для тебя.\n\nЖди новости из:\n${selectedGroupsNames.map(name => `🔸${name}`).join('\n')}`,
       { parse_mode: 'HTML' }
     );
+
+    await sendFreshestPostForUser(query.from.id);
+    
   } else {
     await bot.sendMessage(query.message.chat.id,
       'Ты ничего не выбрал — но всегда можно вернуться 😉'
@@ -419,63 +422,41 @@ async function showGroupSelection(bot, chatId, userId, allGroups, page = 0, mess
   }
 }
 
-// ======== [АВТОМАТИЧЕСКАЯ РАССЫЛКА VK-ПОСТОВ КАЖДЫЕ 30 МИНУТ] ========
-async function sendLatestVkPosts() {
-  console.log('[DEBUG] Содержимое users.json:', fs.readFileSync(usersPath, 'utf-8'));
+// === ОТПРАВИТЬ СРАЗУ ОДИН СВЕЖИЙ ПОСТ ПОЛЬЗОВАТЕЛЮ ===
+async function sendFreshestPostForUser(tgUserId) {
+  const selectedGroupIds = userSelectedGroups[tgUserId];
+  if (!Array.isArray(selectedGroupIds) || !selectedGroupIds.length) return;
+  const userData = getUserData(tgUserId);
+  if (!userData || !userData.access_token) return;
+  const vkAccessToken = userData.access_token;
 
+  let freshestPost = null;
+  let freshestGroup = null;
 
-
-  // Перебираем всех пользователей, у кого есть выбранные группы
-  for (const userKey in userSelectedGroups) {
-    if (!/^\d+$/.test(userKey)) continue; // Пропускаем служебные ключи
-    const tgUserId = Number(userKey);
-
-     
-    const selectedGroupIds = userSelectedGroups[tgUserId];
-    if (!Array.isArray(selectedGroupIds) || !selectedGroupIds.length) continue;
-
-    // ЛОГ 2: Данные пользователя
-    console.log('[DEBUG] tgUserId:', tgUserId, 'typeof:', typeof tgUserId);
-    const userData = getUserData(tgUserId);
-    console.log(`🟠 [Пользователь] tgUserId: ${tgUserId}, selectedGroupIds: ${JSON.stringify(selectedGroupIds)}, userData: ${!!userData}`);
-    console.log('[DEBUG] userData:', userData);
-    if (!userData || !userData.access_token) continue;
-    const vkAccessToken = userData.access_token;
-
-    // Для каждой выбранной группы
-    for (const groupId of selectedGroupIds) {
-      const owner_id = -Math.abs(groupId); // Важно: минус для паблика!
-      try {
-  const res = await axios.get('https://api.vk.com/method/wall.get', {
-    params: {
-      owner_id,
-      count: 1,
-      access_token: vkAccessToken,
-      v: '5.199'
-    }
-  });
-  const posts = (res.data.response && res.data.response.items) ? res.data.response.items : [];
-  const nonAdPosts = posts.filter(post => !post.marked_as_ads);
-  console.log(`🟢 [wall.get] Пользователь ${tgUserId}, группа ${groupId}, всего постов: ${posts.length}`);
-
-  if (!nonAdPosts.length) continue;
-
-  sentPosts[tgUserId] = sentPosts[tgUserId] || {};
-  sentPosts[tgUserId][groupId] = sentPosts[tgUserId][groupId] || [];
-
-  const newPosts = nonAdPosts.filter(post => !sentPosts[tgUserId][groupId].includes(post.id));
-  console.log(`🔵 [Отправка] Новых постов для отправки: ${newPosts.length}`);
-  if (!newPosts.length) continue;
-
-  const postsToSend = newPosts.slice(0, 1);
-  for (const post of postsToSend) {
-    let text = post.text || '[без текста]';
-    const postUrl = "https://vk.com/wall" + owner_id + "_" + post.id;
+  for (const groupId of selectedGroupIds) {
+    const owner_id = -Math.abs(groupId);
+    try {
+      const res = await axios.get('https://api.vk.com/method/wall.get', {
+        params: { owner_id, count: 1, access_token: vkAccessToken, v: '5.199' }
+      });
+      const posts = (res.data.response && res.data.response.items) ? res.data.response.items : [];
+      const nonAdPosts = posts.filter(post => !post.marked_as_ads);
+      if (nonAdPosts.length) {
+        const post = nonAdPosts[0];
+        if (!freshestPost || post.date > freshestPost.date) {
+          freshestPost = post;
+          freshestGroup = groupId;
+        }
+      }
+    } catch (e) { }
+  }
+  if (freshestPost) {
+    let text = freshestPost.text || '[без текста]';
+    const postUrl = "https://vk.com/wall" + -Math.abs(freshestGroup) + "_" + freshestPost.id;
     text += "\n\n<a href=\"" + postUrl + "\">Открыть в VK</a>";
     await bot.sendMessage(tgUserId, text, { parse_mode: 'HTML', disable_web_page_preview: false });
-
-    if (post.attachments && Array.isArray(post.attachments)) {
-      for (const att of post.attachments) {
+    if (freshestPost.attachments && Array.isArray(freshestPost.attachments)) {
+      for (const att of freshestPost.attachments) {
         if (att.type === 'photo' && att.photo && att.photo.sizes) {
           const photo = att.photo.sizes.sort((a, b) => b.width - a.width)[0];
           await bot.sendPhoto(tgUserId, photo.url);
@@ -489,19 +470,93 @@ async function sendLatestVkPosts() {
         }
       }
     }
-
-    sentPosts[tgUserId][groupId].push(post.id);
-    if (sentPosts[tgUserId][groupId].length > 1000) {
-      sentPosts[tgUserId][groupId] = sentPosts[tgUserId][groupId].slice(-1000);
-    }
   }
-} catch (e) {
-  // Вот твой обработчик ошибок!
-  console.log('🔴 [Ошибка wall.get]:', e?.response?.data || e.message || e);
+}
+
+
+// ======== [АВТОМАТИЧЕСКАЯ РАССЫЛКА VK-ПОСТОВ КАЖДЫЕ 30 МИНУТ] ========
+async function sendLatestVkPosts() {
+  for (const userKey in userSelectedGroups) {
+    if (!/^\d+$/.test(userKey)) continue;
+    const tgUserId = Number(userKey);
+    const selectedGroupIds = userSelectedGroups[tgUserId];
+    if (!Array.isArray(selectedGroupIds) || !selectedGroupIds.length) continue;
+
+    const userData = getUserData(tgUserId);
+    if (!userData || !userData.access_token) continue;
+    const vkAccessToken = userData.access_token;
+
+    let allNewPosts = [];
+
+    // 1. Собираем новые посты из всех групп пользователя
+    for (const groupId of selectedGroupIds) {
+      const owner_id = -Math.abs(groupId);
+      try {
+        const res = await axios.get('https://api.vk.com/method/wall.get', {
+          params: {
+            owner_id,
+            count: 5, // Можно увеличить если хочешь более "быструю" обработку
+            access_token: vkAccessToken,
+            v: '5.199'
+          }
+        });
+        const posts = (res.data.response && res.data.response.items) ? res.data.response.items : [];
+        const nonAdPosts = posts.filter(post => !post.marked_as_ads);
+
+        sentPosts[tgUserId] = sentPosts[tgUserId] || {};
+        sentPosts[tgUserId][groupId] = sentPosts[tgUserId][groupId] || [];
+
+        // 2. Добавляем только новые посты
+        for (const post of nonAdPosts) {
+          if (!sentPosts[tgUserId][groupId].includes(post.id)) {
+            allNewPosts.push({
+              ...post,
+              groupId,
+              owner_id
+            });
+          }
         }
+      } catch (e) {
+        console.log('🔴 [Ошибка wall.get]:', e?.response?.data || e.message || e);
+      }
+    }
+
+    // 3. Сортируем все новые посты по времени (от старого к новому)
+    allNewPosts.sort((a, b) => a.date - b.date);
+
+    // 4. Отправляем только ОДИН (самый ранний)
+    if (allNewPosts.length) {
+      const post = allNewPosts[0];
+      let text = post.text || '[без текста]';
+      const postUrl = "https://vk.com/wall" + post.owner_id + "_" + post.id;
+      text += "\n\n<a href=\"" + postUrl + "\">Открыть в VK</a>";
+      await bot.sendMessage(tgUserId, text, { parse_mode: 'HTML', disable_web_page_preview: false });
+
+      // Вложения
+      if (post.attachments && Array.isArray(post.attachments)) {
+        for (const att of post.attachments) {
+          if (att.type === 'photo' && att.photo && att.photo.sizes) {
+            const photo = att.photo.sizes.sort((a, b) => b.width - a.width)[0];
+            await bot.sendPhoto(tgUserId, photo.url);
+          }
+          if (att.type === 'doc' && att.doc && att.doc.url) {
+            await bot.sendDocument(tgUserId, att.doc.url, { caption: att.doc.title || '' });
+          }
+          if (att.type === 'video' && att.video) {
+            const videoUrl = "https://vk.com/video" + att.video.owner_id + "_" + att.video.id;
+            await bot.sendMessage(tgUserId, "🎬 <b>Видео:</b> " + videoUrl, { parse_mode: 'HTML' });
+          }
+        }
+      }
+
+      // Отметим пост как отправленный
+      sentPosts[tgUserId][post.groupId].push(post.id);
+      if (sentPosts[tgUserId][post.groupId].length > 1000) {
+        sentPosts[tgUserId][post.groupId] = sentPosts[tgUserId][post.groupId].slice(-1000);
       }
     }
   }
+}
 
 
 setInterval(sendLatestVkPosts, 10 * 60 * 1000);
