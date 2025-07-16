@@ -186,7 +186,8 @@ if (query.data === 'groups_done') {
       : `ID: ${id}`;
   });
   console.log(`[Выбор групп] Пользователь ${query.from.id} выбрал:\n` + selectedGroupsNames.join('\n'));
-      });
+
+    
   
     await bot.sendMessage(query.message.chat.id,
       `<b>Группы выбраны! ⚡️</b>\nСовсем скоро лента наполнится магией именно для тебя.\n\nЖди новости из:\n${selectedGroupsNames.map(name => `🔸${name}`).join('\n')}`,
