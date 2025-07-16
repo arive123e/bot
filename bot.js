@@ -463,10 +463,10 @@ async function sendFreshestPostForUser(tgUserId) {
         params: { owner_id, count: 1, access_token: vkAccessToken, v: '5.199' }
       });
       
-      const posts = (res.data.response && res.data.response.items) ? res.data.response.items : [];
-const nonAdPosts = posts.filter(
-  post => !post.marked_as_ads && !post.is_pinned // <-- исключаем закреплённые!
-);
+const posts = (res.data.response && res.data.response.items) ? res.data.response.items : [];
+const nonAdPosts = posts.filter(post => !post.marked_as_ads && !post.is_pinned);
+if (nonAdPosts.length) {
+  const post = nonAdPosts[0]; // Самый свежий нормальный пост
 
       if (nonAdPosts.length) {
         const post = nonAdPosts[0];
@@ -529,9 +529,9 @@ async function sendLatestVkPosts() {
           }
         });
 const posts = (res.data.response && res.data.response.items) ? res.data.response.items : [];
-const nonAdPosts = posts.filter(
-  post => !post.marked_as_ads && !post.is_pinned // <-- исключаем закреплённые!
-);
+const nonAdPosts = posts.filter(post => !post.marked_as_ads && !post.is_pinned);
+if (nonAdPosts.length) {
+  const post = nonAdPosts[0]; // Самый свежий нормальный пост
 
 
         sentPosts[tgUserId] = sentPosts[tgUserId] || {};
