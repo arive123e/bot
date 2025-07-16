@@ -456,13 +456,15 @@ async function sendFreshestPostForUser(tgUserId) {
   let freshestPost = null;
   let freshestGroup = null;
 
+  // 1. Получаем по 1 самому новому (не реклама, не закреп) посту из каждой группы
   for (const groupId of selectedGroupIds) {
     const owner_id = -Math.abs(groupId);
     try {
       const res = await axios.get('https://api.vk.com/method/wall.get', {
-        params: { owner_id, count: 1, access_token: vkAccessToken, v: '5.199' }
+        params: { owner_id, count: 5, access_token: vkAccessToken, v: '5.199' }
       });
 
+      // Берем самый свежий (он всегда первый), фильтруем рекламу и закрепы
       const posts = (res.data.response && res.data.response.items) ? res.data.response.items : [];
       const nonAdPosts = posts.filter(post => !post.marked_as_ads && !post.is_pinned);
       if (nonAdPosts.length) {
@@ -475,11 +477,8 @@ async function sendFreshestPostForUser(tgUserId) {
     } catch (e) {}
   }
 
-  // ⬇️ Вот тут ПРОВЕРЯЕМ, есть ли что отправлять:
-  if (!freshestPost) {
-    // Просто return, ничего не отправляем!
-    return;
-  }
+  // 2. Если пост найден — отправляем его
+  if (!freshestPost) return;
 
   const postUrl = "https://vk.com/wall" + -Math.abs(freshestGroup) + "_" + freshestPost.id;
   const { text, buttons } = formatVkPost(freshestPost.text || '[без текста]', postUrl);
@@ -504,7 +503,17 @@ async function sendFreshestPostForUser(tgUserId) {
       }
     }
   }
+
+  // 3. === Запоминаем дату тестового поста как "границу" ===
+  // Сохраняем в sentPosts для пользователя специальное поле borderDate
+  // (Если sentPosts[tgUserId] еще нет — создаём)
+  sentPosts[tgUserId] = sentPosts[tgUserId] || {};
+  sentPosts[tgUserId].borderDate = freshestPost.date;
+  // И отмечаем этот пост отправленным для своей группы
+  sentPosts[tgUserId][freshestGroup] = sentPosts[tgUserId][freshestGroup] || [];
+  sentPosts[tgUserId][freshestGroup].push(freshestPost.id);
 }
+
 
 
 
