@@ -496,7 +496,6 @@ async function sendFreshestPostForUser(tgUserId) {
       }
     }
   }
-}
 
 
 // ======== [АВТОМАТИЧЕСКАЯ РАССЫЛКА VK-ПОСТОВ КАЖДЫЕ 30 МИНУТ] ========
