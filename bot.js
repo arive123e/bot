@@ -178,12 +178,16 @@ if (!isUnlimited && selected.length >= MAX_GROUPS_FREE) {
 if (query.data === 'groups_done') {
   const selectedGroups = userSelectedGroups[query.from.id] || [];
   if (selectedGroups.length) {
-    const allGroups = userSelectedGroups[query.from.id + '_all'] || [];
-    const selectedGroupsNames = selectedGroups
-      .map(id => {
-        const group = allGroups.find(g => g.id === id);
-        return group ? (group.name || group.screen_name || `ID${id}`) : `ID${id}`;
+  const allGroups = userSelectedGroups[query.from.id + '_all'] || [];
+  const selectedGroupsNames = selectedGroups.map(id => {
+    const group = allGroups.find(g => g.id === id);
+    return group
+      ? `ID: ${id} | Название: ${group.name || group.screen_name || `ID${id}`}`
+      : `ID: ${id}`;
+  });
+  console.log(`[Выбор групп] Пользователь ${query.from.id} выбрал:\n` + selectedGroupsNames.join('\n'));
       });
+  
     await bot.sendMessage(query.message.chat.id,
       `<b>Группы выбраны! ⚡️</b>\nСовсем скоро лента наполнится магией именно для тебя.\n\nЖди новости из:\n${selectedGroupsNames.map(name => `🔸${name}`).join('\n')}`,
       { parse_mode: 'HTML' }
@@ -489,37 +493,48 @@ async function sendLatestVkPosts() {
     let allNewPosts = [];
 
     // 1. Собираем новые посты из всех групп пользователя
-    for (const groupId of selectedGroupIds) {
-      const owner_id = -Math.abs(groupId);
-      try {
-        const res = await axios.get('https://api.vk.com/method/wall.get', {
-          params: {
-            owner_id,
-            count: 5, // Можно увеличить если хочешь более "быструю" обработку
-            access_token: vkAccessToken,
-            v: '5.199'
-          }
+for (const groupId of selectedGroupIds) {
+  const owner_id = -Math.abs(groupId);
+  try {
+    const res = await axios.get('https://api.vk.com/method/wall.get', {
+      params: {
+        owner_id,
+        count: 5,
+        access_token: vkAccessToken,
+        v: '5.199'
+      }
+    });
+    const posts = (res.data.response && res.data.response.items) ? res.data.response.items : [];
+    const nonAdPosts = posts.filter(post => !post.marked_as_ads);
+
+    sentPosts[tgUserId] = sentPosts[tgUserId] || {};
+    sentPosts[tgUserId][groupId] = sentPosts[tgUserId][groupId] || [];
+
+    // ---- ЛОГИ ----
+    let newPostsHere = [];
+    for (const post of nonAdPosts) {
+      if (!sentPosts[tgUserId][groupId].includes(post.id)) {
+        newPostsHere.push(post);
+        allNewPosts.push({
+          ...post,
+          groupId,
+          owner_id
         });
-        const posts = (res.data.response && res.data.response.items) ? res.data.response.items : [];
-        const nonAdPosts = posts.filter(post => !post.marked_as_ads);
-
-        sentPosts[tgUserId] = sentPosts[tgUserId] || {};
-        sentPosts[tgUserId][groupId] = sentPosts[tgUserId][groupId] || [];
-
-        // 2. Добавляем только новые посты
-        for (const post of nonAdPosts) {
-          if (!sentPosts[tgUserId][groupId].includes(post.id)) {
-            allNewPosts.push({
-              ...post,
-              groupId,
-              owner_id
-            });
-          }
-        }
-      } catch (e) {
-        console.log('🔴 [Ошибка wall.get]:', e?.response?.data || e.message || e);
       }
     }
+    if (newPostsHere.length) {
+      const groupInfo = groupId + ' | ' +
+        ((userSelectedGroups[tgUserId + '_all'] || []).find(g => g.id === groupId)?.name || '');
+      console.log(`[Новые посты] Пользователь ${tgUserId} | Группа: ${groupInfo} | Новых: ${newPostsHere.length}`);
+      newPostsHere.forEach(post => {
+        console.log(`  - post.id = ${post.id}, дата = ${new Date(post.date * 1000).toLocaleString()}`);
+      });
+    }
+    // --------------
+  } catch (e) {
+    console.log('🔴 [Ошибка wall.get]:', e?.response?.data || e.message || e);
+  }
+}
 
     // 3. Сортируем все новые посты по времени (от старого к новому)
     allNewPosts.sort((a, b) => a.date - b.date);
@@ -559,5 +574,5 @@ async function sendLatestVkPosts() {
 }
 
 
-setInterval(sendLatestVkPosts, 10 * 60 * 1000);
+setInterval(sendLatestVkPosts, 60 * 1000);
 
