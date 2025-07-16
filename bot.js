@@ -514,63 +514,63 @@ async function sendLatestVkPosts() {
     let allNewPosts = [];
 
     // 1. Собираем новые посты из всех групп пользователя
-for (const groupId of selectedGroupIds) {
-  const owner_id = -Math.abs(groupId);
-  try {
-    const res = await axios.get('https://api.vk.com/method/wall.get', {
-      params: {
-        owner_id,
-        count: 5,
-        access_token: vkAccessToken,
-        v: '5.199'
-      }
-    });
-    const posts = (res.data.response && res.data.response.items) ? res.data.response.items : [];
-    const nonAdPosts = posts.filter(post => !post.marked_as_ads);
-
-    sentPosts[tgUserId] = sentPosts[tgUserId] || {};
-    sentPosts[tgUserId][groupId] = sentPosts[tgUserId][groupId] || [];
-
-    // ---- ЛОГИ ----
-    let newPostsHere = [];
-    for (const post of nonAdPosts) {
-      if (!sentPosts[tgUserId][groupId].includes(post.id)) {
-        newPostsHere.push(post);
-        allNewPosts.push({
-          ...post,
-          groupId,
-          owner_id
+    for (const groupId of selectedGroupIds) {
+      const owner_id = -Math.abs(groupId);
+      try {
+        const res = await axios.get('https://api.vk.com/method/wall.get', {
+          params: {
+            owner_id,
+            count: 5,
+            access_token: vkAccessToken,
+            v: '5.199'
+          }
         });
+        const posts = (res.data.response && res.data.response.items) ? res.data.response.items : [];
+        const nonAdPosts = posts.filter(post => !post.marked_as_ads);
+
+        sentPosts[tgUserId] = sentPosts[tgUserId] || {};
+        sentPosts[tgUserId][groupId] = sentPosts[tgUserId][groupId] || [];
+
+        // ---- ЛОГИ ----
+        let newPostsHere = [];
+        for (const post of nonAdPosts) {
+          if (!sentPosts[tgUserId][groupId].includes(post.id)) {
+            newPostsHere.push(post);
+            allNewPosts.push({
+              ...post,
+              groupId,
+              owner_id
+            });
+          }
+        }
+        if (newPostsHere.length) {
+          const groupInfo = groupId + ' | ' +
+            ((userSelectedGroups[tgUserId + '_all'] || []).find(g => g.id === groupId)?.name || '');
+          console.log(`[Новые посты] Пользователь ${tgUserId} | Группа: ${groupInfo} | Новых: ${newPostsHere.length}`);
+          newPostsHere.forEach(post => {
+            console.log(`  - post.id = ${post.id}, дата = ${new Date(post.date * 1000).toLocaleString()}`);
+          });
+        }
+        // --------------
+      } catch (e) {
+        console.log('🔴 [Ошибка wall.get]:', e?.response?.data || e.message || e);
       }
-    }
-    if (newPostsHere.length) {
-      const groupInfo = groupId + ' | ' +
-        ((userSelectedGroups[tgUserId + '_all'] || []).find(g => g.id === groupId)?.name || '');
-      console.log(`[Новые посты] Пользователь ${tgUserId} | Группа: ${groupInfo} | Новых: ${newPostsHere.length}`);
-      newPostsHere.forEach(post => {
-        console.log(`  - post.id = ${post.id}, дата = ${new Date(post.date * 1000).toLocaleString()}`);
-      });
-    }
-    // --------------
-  } catch (e) {
-    console.log('🔴 [Ошибка wall.get]:', e?.response?.data || e.message || e);
-  }
-}
+    } // <- ВАЖНО! Эта скобка закрывает for (const groupId ...)
 
     // 3. Сортируем все новые посты по времени (от старого к новому)
     allNewPosts.sort((a, b) => a.date - b.date);
 
     // 4. Отправляем только ОДИН (самый ранний)
     if (allNewPosts.length) {
-  const post = allNewPosts[0];
-  const postUrl = "https://vk.com/wall" + post.owner_id + "_" + post.id;
-  const { text, buttons } = formatVkPost(post.text || '[без текста]', postUrl);
+      const post = allNewPosts[0];
+      const postUrl = "https://vk.com/wall" + post.owner_id + "_" + post.id;
+      const { text, buttons } = formatVkPost(post.text || '[без текста]', postUrl);
 
-  await bot.sendMessage(tgUserId, text, {
-    parse_mode: 'HTML',
-    reply_markup: { inline_keyboard: buttons },
-    disable_web_page_preview: false
-  });
+      await bot.sendMessage(tgUserId, text, {
+        parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: buttons },
+        disable_web_page_preview: false
+      });
 
       // Вложения
       if (post.attachments && Array.isArray(post.attachments)) {
@@ -595,9 +595,9 @@ for (const groupId of selectedGroupIds) {
         sentPosts[tgUserId][post.groupId] = sentPosts[tgUserId][post.groupId].slice(-1000);
       }
     }
-  }
-}
-
+  } // <- ВАЖНО! Эта скобка закрывает for (const userKey ...)
+} // <- ВАЖНО! Эта скобка закрывает саму функцию
 
 setInterval(sendLatestVkPosts, 60 * 1000);
+
 
