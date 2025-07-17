@@ -180,6 +180,17 @@ if (!isUnlimited && selected.length >= MAX_GROUPS_FREE) {
 }
       userSelectedGroups[userId].push(groupIdNum);
     }
+
+     if (!groupTitles[groupIdNum]) {
+    const userData = getUserData(userId);
+    if (userData && userData.access_token) {
+      const title = await fetchGroupTitle(groupIdNum, userData.access_token);
+      if (title) {
+        groupTitles[groupIdNum] = title;
+        fs.writeFileSync('groupTitles.json', JSON.stringify(groupTitles, null, 2));
+      }
+    }
+  }
     
     // Обновляем инлайн-кнопки
      await showGroupSelection(bot, query.message.chat.id, userId, allGroups, Number(page), selectMsgId, isSearch);
