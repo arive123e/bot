@@ -446,6 +446,14 @@ async function showGroupSelection(bot, chatId, userId, allGroups, page = 0, mess
 }
 
 // === ОТПРАВИТЬ СРАЗУ ОДИН СВЕЖИЙ ПОСТ ПОЛЬЗОВАТЕЛЮ ===
+const fs = require('fs');
+
+// Подгружаем sentPosts из файла при запуске (или создаём пустой объект)
+let sentPosts = {};
+if (fs.existsSync('sentPosts.json')) {
+  sentPosts = JSON.parse(fs.readFileSync('sentPosts.json', 'utf-8'));
+}
+
 async function sendFreshestPostForUser(tgUserId) {
   const selectedGroupIds = userSelectedGroups[tgUserId];
   if (!Array.isArray(selectedGroupIds) || !selectedGroupIds.length) return;
@@ -453,35 +461,46 @@ async function sendFreshestPostForUser(tgUserId) {
   if (!userData || !userData.access_token) return;
   const vkAccessToken = userData.access_token;
 
+  // Для каждой группы ищем самый новый пост, которого ещё не было
   let freshestPost = null;
   let freshestGroup = null;
 
-  // 1. Получаем по 1 самому новому (не реклама, не закреп) посту из каждой группы
+  sentPosts[tgUserId] = sentPosts[tgUserId] || {};
+
   for (const groupId of selectedGroupIds) {
     const owner_id = -Math.abs(groupId);
     try {
       const res = await axios.get('https://api.vk.com/method/wall.get', {
         params: { owner_id, count: 5, access_token: vkAccessToken, v: '5.199' }
       });
-
-      // Берем самый свежий (он всегда первый), фильтруем рекламу и закрепы
       const posts = (res.data.response && res.data.response.items) ? res.data.response.items : [];
       const nonAdPosts = posts.filter(post => !post.marked_as_ads && !post.is_pinned);
-      if (nonAdPosts.length) {
-        const post = nonAdPosts[0];
+
+      // Берём только посты, которые новее границы (borderDate) для этой группы
+      const borderDate = sentPosts[tgUserId][groupId]?.borderDate || 0;
+      const newPosts = nonAdPosts.filter(post => post.date > borderDate);
+
+      // Берём самый свежий из новых, если есть
+      if (newPosts.length) {
+        const post = newPosts[0];
         if (!freshestPost || post.date > freshestPost.date) {
           freshestPost = post;
           freshestGroup = groupId;
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      // Можно залогировать ошибку (например, если нет доступа к группе)
+      // console.error('Ошибка wall.get:', e.message);
+    }
   }
 
-  // 2. Если пост найден — отправляем его
+  // Если ничего нового нет — выходим
   if (!freshestPost) return;
 
+  // --- Отправка самого свежего поста ---
   const postUrl = "https://vk.com/wall" + -Math.abs(freshestGroup) + "_" + freshestPost.id;
   const { text, buttons } = formatVkPost(freshestPost.text || '[без текста]', postUrl);
+
   await bot.sendMessage(tgUserId, text, {
     parse_mode: 'HTML',
     reply_markup: { inline_keyboard: buttons },
@@ -504,20 +523,27 @@ async function sendFreshestPostForUser(tgUserId) {
     }
   }
 
-  // 3. === Запоминаем дату тестового поста как "границу" ===
-  // Сохраняем в sentPosts для пользователя специальное поле borderDate
-  // (Если sentPosts[tgUserId] еще нет — создаём)
-  sentPosts[tgUserId] = sentPosts[tgUserId] || {};
-  sentPosts[tgUserId].borderDate = freshestPost.date;
-  // И отмечаем этот пост отправленным для своей группы
-  sentPosts[tgUserId][freshestGroup] = sentPosts[tgUserId][freshestGroup] || [];
-  sentPosts[tgUserId][freshestGroup].push(freshestPost.id);
+  // === Обновляем “границу” (borderDate) для группы ===
+  sentPosts[tgUserId][freshestGroup] = sentPosts[tgUserId][freshestGroup] || {};
+  sentPosts[tgUserId][freshestGroup].borderDate = freshestPost.date;
+
+  // --- Сохраняем sentPosts в файл (после каждой отправки для надёжности) ---
+  fs.writeFileSync('sentPosts.json', JSON.stringify(sentPosts, null, 2));
 }
 
 
 
 
+
 // ======== [АВТОМАТИЧЕСКАЯ РАССЫЛКА VK-ПОСТОВ КАЖДЫЕ 30 МИНУТ] ========
+const fs = require('fs');
+
+// Загружаем историю отправленных (или пустой объект)
+let sentPosts = {};
+if (fs.existsSync('sentPosts.json')) {
+  sentPosts = JSON.parse(fs.readFileSync('sentPosts.json', 'utf-8'));
+}
+
 async function sendLatestVkPosts() {
   for (const userKey in userSelectedGroups) {
     if (!/^\d+$/.test(userKey)) continue; // Только id пользователей
@@ -529,16 +555,18 @@ async function sendLatestVkPosts() {
     if (!userData || !userData.access_token) continue;
     const vkAccessToken = userData.access_token;
 
+    sentPosts[tgUserId] = sentPosts[tgUserId] || {};
+
     let allNewPosts = [];
 
-    // 1. Получаем свежие посты из всех выбранных групп
+    // Получаем новые посты по каждой группе (только что новее borderDate)
     for (const groupId of selectedGroupIds) {
       const owner_id = -Math.abs(groupId);
       try {
         const res = await axios.get('https://api.vk.com/method/wall.get', {
           params: {
             owner_id,
-            count: 5, // Можно увеличить если в группе много рекламы/закрепов
+            count: 5, // Можно больше, если часто обновляется лента
             access_token: vkAccessToken,
             v: '5.199'
           }
@@ -547,35 +575,17 @@ async function sendLatestVkPosts() {
         const posts = (res.data.response && res.data.response.items) ? res.data.response.items : [];
         const nonAdPosts = posts.filter(post => !post.marked_as_ads && !post.is_pinned);
 
-        sentPosts[tgUserId] = sentPosts[tgUserId] || {};
-        sentPosts[tgUserId][groupId] = sentPosts[tgUserId][groupId] || [];
+        // Получаем границу (до какого поста уже “прочитано”)
+        const borderDate = sentPosts[tgUserId][groupId]?.borderDate || 0;
+        const freshPosts = nonAdPosts.filter(post => post.date > borderDate);
 
-        // "Граница": дата тестового поста, отправленного ранее
-        const borderDate = sentPosts[tgUserId].borderDate || 0;
+        if (freshPosts.length) {
+          // Сортируем по времени: сначала самые старые, чтобы ничего не пропустить
+          freshPosts.sort((a, b) => a.date - b.date);
 
-        // 2. Оставляем только новые посты (не отправленные, после borderDate)
-        let newPostsHere = [];
-        for (const post of nonAdPosts) {
-          if (
-            post.date > borderDate &&               // Новее тестового
-            !sentPosts[tgUserId][groupId].includes(post.id) // Не отправляли этот id
-          ) {
-            newPostsHere.push(post);
-            allNewPosts.push({
-              ...post,
-              groupId,
-              owner_id
-            });
-          }
-        }
-
-        // Можно логи оставить:
-        if (newPostsHere.length) {
-          const groupInfo = groupId + ' | ' +
-            ((userSelectedGroups[tgUserId + '_all'] || []).find(g => g.id === groupId)?.name || '');
-          console.log(`[Новые посты] Пользователь ${tgUserId} | Группа: ${groupInfo} | Новых: ${newPostsHere.length}`);
-          newPostsHere.forEach(post => {
-            console.log(`  - post.id = ${post.id}, дата = ${new Date(post.date * 1000).toLocaleString()}`);
+          // Добавляем в общую кучу, для последующей сортировки по времени и “правильного” отправления
+          freshPosts.forEach(post => {
+            allNewPosts.push({ ...post, groupId, owner_id });
           });
         }
       } catch (e) {
@@ -583,13 +593,12 @@ async function sendLatestVkPosts() {
       }
     }
 
-    // 3. Сортируем все новые посты по времени (от старого к новому)
+    // Сортируем вообще все новые посты (по времени — старые сначала)
     allNewPosts.sort((a, b) => a.date - b.date);
 
-    // 4. Если нет новых постов — ничего не отправляем
     if (!allNewPosts.length) continue;
 
-    // 5. Отправляем только ОДИН — самый старый из свежих
+    // Отправляем только один — самый первый из новых (по порядку)
     const post = allNewPosts[0];
     const postUrl = "https://vk.com/wall" + post.owner_id + "_" + post.id;
     const { text, buttons } = formatVkPost(post.text || '[без текста]', postUrl);
@@ -600,7 +609,6 @@ async function sendLatestVkPosts() {
       disable_web_page_preview: false
     });
 
-    // Вложения
     if (post.attachments && Array.isArray(post.attachments)) {
       for (const att of post.attachments) {
         if (att.type === 'photo' && att.photo && att.photo.sizes) {
@@ -617,11 +625,12 @@ async function sendLatestVkPosts() {
       }
     }
 
-    // 6. Отмечаем этот пост как отправленный (id)
-    sentPosts[tgUserId][post.groupId].push(post.id);
-    if (sentPosts[tgUserId][post.groupId].length > 1000) {
-      sentPosts[tgUserId][post.groupId] = sentPosts[tgUserId][post.groupId].slice(-1000);
-    }
+    // После успешной отправки отмечаем этот пост “границей” (borderDate)
+    sentPosts[tgUserId][post.groupId] = sentPosts[tgUserId][post.groupId] || {};
+    sentPosts[tgUserId][post.groupId].borderDate = post.date;
+
+    // --- Сохраняем историю отправки ---
+    fs.writeFileSync('sentPosts.json', JSON.stringify(sentPosts, null, 2));
   }
 }
 
