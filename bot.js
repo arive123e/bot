@@ -494,35 +494,62 @@ async function sendFreshestPostForUser(tgUserId) {
   // Если нет подходящих постов, выходим
   if (!freshestPost) return;
 // -----------------отправка постов для тестового сообщения---------------------------------------
-const postUrl = `https://vk.com/wall${-Math.abs(freshestGroup)}_${freshestPost.id}`;
-const { text, buttons } = formatVkPost(freshestPost.text || '[без текста]', postUrl);
+// 1. Получаем название группы
+const groupName = groupTitles[freshestGroup] || "Группа";
 
+// 2. Проверяем есть ли текст
+const isTextExists = (freshestPost.text && freshestPost.text.trim().length > 0);
+const boldGroup = `<b>${groupName}</b>`;
+const caption = isTextExists
+  ? `${boldGroup}\n\n${freshestPost.text.trim()}`
+  : boldGroup;
+
+// 3. Кнопка на пост
+const postUrl = `https://vk.com/wall${-Math.abs(freshestGroup)}_${freshestPost.id}`;
+const buttons = [
+  [{ text: '🔗 Открыть пост ВК', url: postUrl }]
+];
+
+// 4. Разбираем вложения
 const attachments = freshestPost.attachments || [];
 const photos = attachments.filter(att => att.type === 'photo');
 const docs = attachments.filter(att => att.type === 'doc');
 const videos = attachments.filter(att => att.type === 'video');
 
-let replyToId = null;
-
-if (photos.length > 0) {
-  // 1. Отправляем медиагруппу (альбом)
+// 5. Отправка (всё по правилам)
+if (photos.length === 1) {
+  // Одиночная фотка: подпись и кнопка прямо под фото
+  const photo = photos[0].photo.sizes.sort((a, b) => b.width - a.width)[0];
+  await bot.sendPhoto(tgUserId, photo.url, {
+    caption: caption,
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: buttons }
+  });
+} else if (photos.length > 1) {
+  // Альбом: все фото одной медиагруппой, caption и кнопка reply на первую фотку
   const media = photos.map(att => {
     const photo = att.photo.sizes.sort((a, b) => b.width - a.width)[0];
     return { type: 'photo', media: photo.url };
   });
   const messages = await bot.sendMediaGroup(tgUserId, media);
-  replyToId = messages[0].message_id;
+  const replyToId = messages[0].message_id;
+  await bot.sendMessage(tgUserId, caption, {
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: buttons },
+    reply_to_message_id: replyToId
+  });
+} else {
+  // Нет фото: просто текст с кнопкой, если текст есть
+  if (isTextExists) {
+    await bot.sendMessage(tgUserId, caption, {
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: buttons }
+    });
+  }
+  // Если и фото нет и текста нет — вообще ничего не отправляем
 }
 
-// 2. Отправляем текст и кнопку (reply на первую фотку, если фотки были)
-await bot.sendMessage(tgUserId, text, {
-  parse_mode: 'HTML',
-  reply_markup: { inline_keyboard: buttons },
-  disable_web_page_preview: false,
-  ...(replyToId ? { reply_to_message_id: replyToId } : {})
-});
-
-// 3. Документы и видео отправляем обычными сообщениями после текста
+// 6. Отправляем документы и видео отдельными сообщениями (по желанию можно добавить описание)
 for (const att of docs) {
   await bot.sendDocument(tgUserId, att.doc.url, { caption: att.doc.title || '' });
 }
@@ -593,38 +620,63 @@ async function sendLatestVkPosts() {
 
     // ================================ВЛОЖЕНИЯ ДЛЯ РАССЫЛКИ ПОСТОВ================================
 const post = allNewPosts[0];
+const groupName = groupTitles[post.groupId] || "Группа";
+
+// Проверяем есть ли текст
+const isTextExists = (post.text && post.text.trim().length > 0);
+const boldGroup = `<b>${groupName}</b>`;
+const caption = isTextExists
+  ? `${boldGroup}\n\n${post.text.trim()}`
+  : boldGroup;
+
 const postUrl = `https://vk.com/wall${post.owner_id}_${post.id}`;
-const { text, buttons } = formatVkPost(post.text || '[без текста]', postUrl);
+const buttons = [
+  [{ text: '🔗 Открыть пост ВК', url: postUrl }]
+];
 
 const attachments = post.attachments || [];
 const photos = attachments.filter(att => att.type === 'photo');
 const docs = attachments.filter(att => att.type === 'doc');
 const videos = attachments.filter(att => att.type === 'video');
 
-let replyToId = null;
-
-if (photos.length > 0) {
-  // 1. Отправляем альбом фоток медиагруппой
+if (photos.length === 1) {
+  // Одиночная фотка — подпись и кнопка прямо под фото
+  const photo = photos[0].photo.sizes.sort((a, b) => b.width - a.width)[0];
+  await bot.sendPhoto(tgUserId, photo.url, {
+    caption: caption,
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: buttons }
+  });
+} else if (photos.length > 1) {
+  // Альбом: все фото одной медиагруппой, caption и кнопка reply на первую фотку
   const media = photos.map(att => {
     const photo = att.photo.sizes.sort((a, b) => b.width - a.width)[0];
     return { type: 'photo', media: photo.url };
   });
   const messages = await bot.sendMediaGroup(tgUserId, media);
-  replyToId = messages[0].message_id;
+  const replyToId = messages[0].message_id;
+  await bot.sendMessage(tgUserId, caption, {
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: buttons },
+    reply_to_message_id: replyToId
+  });
+} else {
+  // Нет фото: просто текст с кнопкой, если текст есть
+  if (isTextExists) {
+    await bot.sendMessage(tgUserId, caption, {
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: buttons }
+    });
+  }
+  // Если и фото нет и текста нет — ничего не отправляем
 }
 
-// 2. Отправляем текст и кнопку (если были фото — reply на первую)
-await bot.sendMessage(tgUserId, text, {
-  parse_mode: 'HTML',
-  reply_markup: { inline_keyboard: buttons },
-  disable_web_page_preview: false,
-  ...(replyToId ? { reply_to_message_id: replyToId } : {})
-});
-
-// 3. Документы и видео после текста
+// Документы отдельными сообщениями
 for (const att of docs) {
   await bot.sendDocument(tgUserId, att.doc.url, { caption: att.doc.title || '' });
 }
+
+// Видео отдельными сообщениями
 for (const att of videos) {
   const videoUrl = `https://vk.com/video${att.video.owner_id}_${att.video.id}`;
   await bot.sendMessage(tgUserId, "🎬 <b>Видео:</b> " + videoUrl, { parse_mode: 'HTML' });
