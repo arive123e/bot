@@ -204,8 +204,8 @@ if (query.data === 'groups_done') {
   const selectedGroupsNames = selectedGroups.map(id => {
     const group = allGroups.find(g => g.id === id);
     return group
-      ? `ID: ${id} | Название: ${group.name || group.screen_name || `ID${id}`}`
-      : `ID: ${id}`;
+    ? `ID: ${id} | Название: ${group.name || group.screen_name || `ID${id}`}`
+    : `ID: ${id}`;
   });
   console.log(`[Выбор групп] Пользователь ${query.from.id} выбрал:\n` + selectedGroupsNames.join('\n'));
 
