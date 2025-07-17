@@ -544,14 +544,17 @@ async function sendLatestVkPosts() {
 
     let allNewPosts = [];
 
-    // Получаем новые посты по каждой группе (только что новее borderDate)
+    // Получаем границу для пользователя (общая для всех групп!)
+    const borderDate = sentPosts[tgUserId].borderDate || 0;
+
+    // Собираем новые посты из всех групп, опубликованные строго после borderDate
     for (const groupId of selectedGroupIds) {
       const owner_id = -Math.abs(groupId);
       try {
         const res = await axios.get('https://api.vk.com/method/wall.get', {
           params: {
             owner_id,
-            count: 5, // Можно больше, если часто обновляется лента
+            count: 5, // Можно увеличить, если много закрепов/рекламы
             access_token: vkAccessToken,
             v: '5.199'
           }
@@ -560,32 +563,25 @@ async function sendLatestVkPosts() {
         const posts = (res.data.response && res.data.response.items) ? res.data.response.items : [];
         const nonAdPosts = posts.filter(post => !post.marked_as_ads && !post.is_pinned);
 
-        // Получаем границу (до какого поста уже “прочитано”)
-        const borderDate = sentPosts[tgUserId][groupId]?.borderDate || 0;
+        // Берём только новые посты после borderDate
         const freshPosts = nonAdPosts.filter(post => post.date > borderDate);
 
-        if (freshPosts.length) {
-          // Сортируем по времени: сначала самые старые, чтобы ничего не пропустить
-          freshPosts.sort((a, b) => a.date - b.date);
-
-          // Добавляем в общую кучу, для последующей сортировки по времени и “правильного” отправления
-          freshPosts.forEach(post => {
-            allNewPosts.push({ ...post, groupId, owner_id });
-          });
-        }
+        freshPosts.forEach(post => {
+          allNewPosts.push({ ...post, groupId, owner_id });
+        });
       } catch (e) {
         console.log('🔴 [Ошибка wall.get]:', e?.response?.data || e.message || e);
       }
     }
 
-    // Сортируем вообще все новые посты (по времени — старые сначала)
+    // Сортируем новые посты по времени (старые первыми)
     allNewPosts.sort((a, b) => a.date - b.date);
 
     if (!allNewPosts.length) continue;
 
-    // Отправляем только один — самый первый из новых (по порядку)
+    // Отправляем только один — самый старый из новых
     const post = allNewPosts[0];
-    const postUrl = "https://vk.com/wall" + post.owner_id + "_" + post.id;
+    const postUrl = `https://vk.com/wall${post.owner_id}_${post.id}`;
     const { text, buttons } = formatVkPost(post.text || '[без текста]', postUrl);
 
     await bot.sendMessage(tgUserId, text, {
@@ -604,23 +600,22 @@ async function sendLatestVkPosts() {
           await bot.sendDocument(tgUserId, att.doc.url, { caption: att.doc.title || '' });
         }
         if (att.type === 'video' && att.video) {
-          const videoUrl = "https://vk.com/video" + att.video.owner_id + "_" + att.video.id;
+          const videoUrl = `https://vk.com/video${att.video.owner_id}_${att.video.id}`;
           await bot.sendMessage(tgUserId, "🎬 <b>Видео:</b> " + videoUrl, { parse_mode: 'HTML' });
         }
       }
     }
 
-    // После успешной отправки отмечаем этот пост “границей” (borderDate)
-    sentPosts[tgUserId][post.groupId] = sentPosts[tgUserId][post.groupId] || {};
-    sentPosts[tgUserId][post.groupId].borderDate = post.date;
+    // После успешной отправки обновляем ОБЩУЮ “границу” пользователя
+    sentPosts[tgUserId].borderDate = post.date;
 
     // --- Сохраняем историю отправки ---
     fs.writeFileSync('sentPosts.json', JSON.stringify(sentPosts, null, 2));
   }
 }
 
-
-
+// Теперь рассылка будет работать по одной “ленте”, а не по группам!
 setInterval(sendLatestVkPosts, 60 * 1000);
+
 
 
