@@ -33,7 +33,6 @@ if (!token) {
 
 const bot = new TelegramBot(token, { polling: true });
 const replyContext = {}; // Кому отвечает магистр поддержки
-const sentPosts = {}; // { [tgUserId]: { [groupId]: [postId, ...] } }
 
 const MAX_TEXT_LENGTH = 2000;
 
