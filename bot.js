@@ -1,11 +1,16 @@
-require('dotenv').config(); // 🔐 Загружаем переменные из .env
+require('dotenv').config();
 
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
-
-const fs = require('fs');
+const fs = require('fs');   // <- ОДИН раз!
 const path = require('path');
 const usersPath = '/root/vk-backend/users.json';
+
+// Подгружаем sentPosts из файла при запуске (или создаём пустой объект)
+let sentPosts = {};
+if (fs.existsSync('sentPosts.json')) {
+  sentPosts = JSON.parse(fs.readFileSync('sentPosts.json', 'utf-8'));
+}
 
 // Функция для поиска пользователя по tg_id
 function getUserData(tgId) {
@@ -447,11 +452,6 @@ async function showGroupSelection(bot, chatId, userId, allGroups, page = 0, mess
 
 
 // Подгружаем sentPosts из файла при запуске (или создаём пустой объект)
-let sentPosts = {};
-if (fs.existsSync('sentPosts.json')) {
-  sentPosts = JSON.parse(fs.readFileSync('sentPosts.json', 'utf-8'));
-}
-
 async function sendFreshestPostForUser(tgUserId) {
   const selectedGroupIds = userSelectedGroups[tgUserId];
   if (!Array.isArray(selectedGroupIds) || !selectedGroupIds.length) return;
@@ -530,17 +530,7 @@ async function sendFreshestPostForUser(tgUserId) {
 }
 
 
-
-
-
 // ======== [АВТОМАТИЧЕСКАЯ РАССЫЛКА VK-ПОСТОВ КАЖДЫЕ 30 МИНУТ] ========
-const fs = require('fs');
-
-// Загружаем историю отправленных (или пустой объект)
-let sentPosts = {};
-if (fs.existsSync('sentPosts.json')) {
-  sentPosts = JSON.parse(fs.readFileSync('sentPosts.json', 'utf-8'));
-}
 
 async function sendLatestVkPosts() {
   for (const userKey in userSelectedGroups) {
