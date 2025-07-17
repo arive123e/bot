@@ -37,6 +37,25 @@ const replyContext = {}; // Кому отвечает магистр подде�
 
 const MAX_TEXT_LENGTH = 2000;
 
+async function fetchGroupTitle(groupId, vkAccessToken) {
+  try {
+    const res = await axios.get('https://api.vk.com/method/groups.getById', {
+      params: {
+        group_id: Math.abs(groupId),
+        access_token: vkAccessToken,
+        v: '5.199'
+      }
+    });
+    if (res.data.response && res.data.response[0]) {
+      return res.data.response[0].name;
+    }
+    return null;
+  } catch (e) {
+    console.log('Ошибка получения названия группы:', e?.response?.data || e.message || e);
+    return null;
+  }
+}
+
 // === ВСТАВЬ ГДЕ-ТО ЗДЕСЬ (после констант, но до основной логики) ===
 function formatVkPost(text, postUrl) {
   let needCut = text.length > MAX_TEXT_LENGTH;
