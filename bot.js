@@ -531,15 +531,20 @@ async function sendFreshestPostForUser(tgUserId) {
   // Если нет подходящих постов, выходим
   if (!freshestPost) return;
 // -----------------отправка постов для тестового сообщения---------------------------------------
-// 1. Получаем название группы
-const groupName = groupTitles[freshestGroup] || "Группа";
+// Получаем массив всех групп пользователя
+const allGroups = userSelectedGroups[tgUserId + '_all'] || [];
+// Ищем объект группы по id
+const groupInfo = allGroups.find(g => String(g.id) === String(freshestGroup));
+// Название, если есть, иначе "Группа"
+const groupName = groupInfo ? groupInfo.name : "Группа";
 
-// 2. Проверяем есть ли текст
+// Дальше всё как было:
 const isTextExists = (freshestPost.text && freshestPost.text.trim().length > 0);
 const boldGroup = `<b>${groupName}</b>`;
 const caption = isTextExists
   ? `${boldGroup}\n\n${freshestPost.text.trim()}`
   : boldGroup;
+
 
 // 3. Кнопка на пост
 const postUrl = `https://vk.com/wall${-Math.abs(freshestGroup)}_${freshestPost.id}`;
@@ -657,9 +662,15 @@ async function sendLatestVkPosts() {
 
     // ================================ВЛОЖЕНИЯ ДЛЯ РАССЫЛКИ ПОСТОВ================================
 const post = allNewPosts[0];
-const groupName = groupTitles[post.groupId] || "Группа";
 
-// Проверяем есть ли текст
+// Получаем массив всех групп пользователя
+const allGroups = userSelectedGroups[tgUserId + '_all'] || [];
+// Находим нужную группу по id
+const groupInfo = allGroups.find(g => String(g.id) === String(post.groupId));
+// Получаем имя группы или fallback "Группа"
+const groupName = groupInfo ? groupInfo.name : "Группа";
+
+// Дальше всё как раньше
 const isTextExists = (post.text && post.text.trim().length > 0);
 const boldGroup = `<b>${groupName}</b>`;
 const caption = isTextExists
