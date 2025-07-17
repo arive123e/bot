@@ -21,8 +21,12 @@ function getUserData(tgId) {
 
 const MAX_GROUPS_FREE = 3; // сколько групп выбрать бесплатно
 const UNLIMITED_USERS = [792903459, 1022172210];
-const userSelectedGroups = {};
 const groupTitles = {};
+
+let userSelectedGroups = {};
+if (fs.existsSync('userSelectedGroups.json')) {
+  userSelectedGroups = JSON.parse(fs.readFileSync('userSelectedGroups.json', 'utf-8'));
+}
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const SUPPORT_CHAT_ID = -4778492984; // chat_id группы поддержки
@@ -186,8 +190,9 @@ https://api.fokusnikaltair.xyz/privacy.html`;
     const isSearch = userSelectedGroups[userId + '_isSearch'] || false; 
     
      // Логика выбора
-    if (selected.includes(groupIdNum)) {
-      userSelectedGroups[userId] = selected.filter(id => id !== groupIdNum);
+   if (selected.includes(groupIdNum)) {
+  userSelectedGroups[userId] = selected.filter(id => id !== groupIdNum);
+  fs.writeFileSync('userSelectedGroups.json', JSON.stringify(userSelectedGroups, null, 2));
     } else {
       const isUnlimited = UNLIMITED_USERS.includes(userId);
 if (!isUnlimited && selected.length >= MAX_GROUPS_FREE) {
@@ -197,7 +202,8 @@ if (!isUnlimited && selected.length >= MAX_GROUPS_FREE) {
   });
   return;
 }
-      userSelectedGroups[userId].push(groupIdNum);
+    userSelectedGroups[userId].push(groupIdNum);
+  fs.writeFileSync('userSelectedGroups.json', JSON.stringify(userSelectedGroups, null, 2));
     }
 
      if (!groupTitles[groupIdNum]) {
