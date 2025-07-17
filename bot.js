@@ -493,32 +493,44 @@ async function sendFreshestPostForUser(tgUserId) {
 
   // Если нет подходящих постов, выходим
   if (!freshestPost) return;
+// -----------------отправка постов для тестового сообщения---------------------------------------
+const postUrl = `https://vk.com/wall${-Math.abs(freshestGroup)}_${freshestPost.id}`;
+const { text, buttons } = formatVkPost(freshestPost.text || '[без текста]', postUrl);
 
-  // Отправляем пост
-  const postUrl = `https://vk.com/wall${-Math.abs(freshestGroup)}_${freshestPost.id}`;
-  const { text, buttons } = formatVkPost(freshestPost.text || '[без текста]', postUrl);
+const attachments = freshestPost.attachments || [];
+const photos = attachments.filter(att => att.type === 'photo');
+const docs = attachments.filter(att => att.type === 'doc');
+const videos = attachments.filter(att => att.type === 'video');
 
-  await bot.sendMessage(tgUserId, text, {
-    parse_mode: 'HTML',
-    reply_markup: { inline_keyboard: buttons },
-    disable_web_page_preview: false
+let replyToId = null;
+
+if (photos.length > 0) {
+  // 1. Отправляем медиагруппу (альбом)
+  const media = photos.map(att => {
+    const photo = att.photo.sizes.sort((a, b) => b.width - a.width)[0];
+    return { type: 'photo', media: photo.url };
   });
+  const messages = await bot.sendMediaGroup(tgUserId, media);
+  replyToId = messages[0].message_id;
+}
 
-  if (freshestPost.attachments && Array.isArray(freshestPost.attachments)) {
-    for (const att of freshestPost.attachments) {
-      if (att.type === 'photo' && att.photo && att.photo.sizes) {
-        const photo = att.photo.sizes.sort((a, b) => b.width - a.width)[0];
-        await bot.sendPhoto(tgUserId, photo.url);
-      }
-      if (att.type === 'doc' && att.doc && att.doc.url) {
-        await bot.sendDocument(tgUserId, att.doc.url, { caption: att.doc.title || '' });
-      }
-      if (att.type === 'video' && att.video) {
-        const videoUrl = `https://vk.com/video${att.video.owner_id}_${att.video.id}`;
-        await bot.sendMessage(tgUserId, "🎬 <b>Видео:</b> " + videoUrl, { parse_mode: 'HTML' });
-      }
-    }
-  }
+// 2. Отправляем текст и кнопку (reply на первую фотку, если фотки были)
+await bot.sendMessage(tgUserId, text, {
+  parse_mode: 'HTML',
+  reply_markup: { inline_keyboard: buttons },
+  disable_web_page_preview: false,
+  ...(replyToId ? { reply_to_message_id: replyToId } : {})
+});
+
+// 3. Документы и видео отправляем обычными сообщениями после текста
+for (const att of docs) {
+  await bot.sendDocument(tgUserId, att.doc.url, { caption: att.doc.title || '' });
+}
+for (const att of videos) {
+  const videoUrl = `https://vk.com/video${att.video.owner_id}_${att.video.id}`;
+  await bot.sendMessage(tgUserId, "🎬 <b>Видео:</b> " + videoUrl, { parse_mode: 'HTML' });
+}
+
 
   // Обновляем ОБЩУЮ границу (borderDate) для пользователя (а не для группы!)
   sentPosts[tgUserId] = sentPosts[tgUserId] || {};
@@ -579,32 +591,45 @@ async function sendLatestVkPosts() {
 
     if (!allNewPosts.length) continue;
 
-    // Отправляем только один — самый старый из новых
-    const post = allNewPosts[0];
-    const postUrl = `https://vk.com/wall${post.owner_id}_${post.id}`;
-    const { text, buttons } = formatVkPost(post.text || '[без текста]', postUrl);
+    // ================================ВЛОЖЕНИЯ ДЛЯ РАССЫЛКИ ПОСТОВ================================
+const post = allNewPosts[0];
+const postUrl = `https://vk.com/wall${post.owner_id}_${post.id}`;
+const { text, buttons } = formatVkPost(post.text || '[без текста]', postUrl);
 
-    await bot.sendMessage(tgUserId, text, {
-      parse_mode: 'HTML',
-      reply_markup: { inline_keyboard: buttons },
-      disable_web_page_preview: false
-    });
+const attachments = post.attachments || [];
+const photos = attachments.filter(att => att.type === 'photo');
+const docs = attachments.filter(att => att.type === 'doc');
+const videos = attachments.filter(att => att.type === 'video');
 
-    if (post.attachments && Array.isArray(post.attachments)) {
-      for (const att of post.attachments) {
-        if (att.type === 'photo' && att.photo && att.photo.sizes) {
-          const photo = att.photo.sizes.sort((a, b) => b.width - a.width)[0];
-          await bot.sendPhoto(tgUserId, photo.url);
-        }
-        if (att.type === 'doc' && att.doc && att.doc.url) {
-          await bot.sendDocument(tgUserId, att.doc.url, { caption: att.doc.title || '' });
-        }
-        if (att.type === 'video' && att.video) {
-          const videoUrl = `https://vk.com/video${att.video.owner_id}_${att.video.id}`;
-          await bot.sendMessage(tgUserId, "🎬 <b>Видео:</b> " + videoUrl, { parse_mode: 'HTML' });
-        }
-      }
-    }
+let replyToId = null;
+
+if (photos.length > 0) {
+  // 1. Отправляем альбом фоток медиагруппой
+  const media = photos.map(att => {
+    const photo = att.photo.sizes.sort((a, b) => b.width - a.width)[0];
+    return { type: 'photo', media: photo.url };
+  });
+  const messages = await bot.sendMediaGroup(tgUserId, media);
+  replyToId = messages[0].message_id;
+}
+
+// 2. Отправляем текст и кнопку (если были фото — reply на первую)
+await bot.sendMessage(tgUserId, text, {
+  parse_mode: 'HTML',
+  reply_markup: { inline_keyboard: buttons },
+  disable_web_page_preview: false,
+  ...(replyToId ? { reply_to_message_id: replyToId } : {})
+});
+
+// 3. Документы и видео после текста
+for (const att of docs) {
+  await bot.sendDocument(tgUserId, att.doc.url, { caption: att.doc.title || '' });
+}
+for (const att of videos) {
+  const videoUrl = `https://vk.com/video${att.video.owner_id}_${att.video.id}`;
+  await bot.sendMessage(tgUserId, "🎬 <b>Видео:</b> " + videoUrl, { parse_mode: 'HTML' });
+}
+
 
     // После успешной отправки обновляем ОБЩУЮ “границу” пользователя
     sentPosts[tgUserId].borderDate = post.date;
