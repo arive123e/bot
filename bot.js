@@ -538,7 +538,7 @@ const caption = isTextExists
 // 3. Кнопка на пост
 const postUrl = `https://vk.com/wall${-Math.abs(freshestGroup)}_${freshestPost.id}`;
 const buttons = [
-  [{ text: '🔗 Открыть пост ВК', url: postUrl }]
+  [{ text: '🧙‍♂️ Открыть источник', url: postUrl }]
 ];
 
 // 4. Разбираем вложения
@@ -662,7 +662,7 @@ const caption = isTextExists
 
 const postUrl = `https://vk.com/wall${post.owner_id}_${post.id}`;
 const buttons = [
-  [{ text: '🔗 Открыть пост ВК', url: postUrl }]
+  [{ text: '🧙‍♂️ Открыть источник', url: postUrl }]
 ];
 
 const attachments = post.attachments || [];
