@@ -497,7 +497,6 @@ if (!freshestPost) return;
       // Для отладки:
       // console.error(`[wall.get] ${groupId}:`, e?.response?.data || e.message);
     }
-  }
 
 
   // Отправляем пост
