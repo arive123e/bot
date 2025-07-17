@@ -445,8 +445,6 @@ async function showGroupSelection(bot, chatId, userId, allGroups, page = 0, mess
   }
 }
 
-// === ОТПРАВИТЬ СРАЗУ ОДИН СВЕЖИЙ ПОСТ ПОЛЬЗОВАТЕЛЮ ===
-const fs = require('fs');
 
 // Подгружаем sentPosts из файла при запуске (или создаём пустой объект)
 let sentPosts = {};
