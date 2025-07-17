@@ -463,28 +463,33 @@ async function sendFreshestPostForUser(tgUserId) {
 
   sentPosts[tgUserId] = sentPosts[tgUserId] || {};
 
-  for (const groupId of selectedGroupIds) {
-    const owner_id = -Math.abs(groupId);
-    try {
-      const res = await axios.get('https://api.vk.com/method/wall.get', {
-        params: { owner_id, count: 1, access_token: vkAccessToken, v: '5.199' }
-      });
-      const posts = (res.data.response && res.data.response.items) ? res.data.response.items : [];
-      // Берём только НЕ рекламу, НЕ закреп
-      const validPosts = posts.filter(post => !post.marked_as_ads && !post.is_pinned);
-
-      if (validPosts.length) {
-        const post = validPosts[0];
-        const borderDate = sentPosts[tgUserId][groupId]?.borderDate || 0;
-        // Только если этот пост новее границы — иначе пропускаем
-        if (post.date > borderDate) {
-          if (!freshestPost || post.date > freshestPost.date) {
-            freshestPost = post;
-            freshestGroup = groupId;
-          }
-        }
+ for (const groupId of selectedGroupIds) {
+  const owner_id = -Math.abs(groupId);
+  try {
+    const res = await axios.get('https://api.vk.com/method/wall.get', {
+      params: { 
+        owner_id, 
+        count: 3, // <-- поменяли c 1 на 3, чтобы не пропускать свежие посты после закрепа/рекламы
+        access_token: vkAccessToken, 
+        v: '5.199' 
       }
-    } catch (e) {
+    });
+    const posts = (res.data.response && res.data.response.items) ? res.data.response.items : [];
+    // Фильтруем по всем условиям
+    const borderDate = sentPosts[tgUserId][groupId]?.borderDate || 0; // <-- вынесли вверх для фильтрации
+    const validPosts = posts.filter(post =>
+      !post.marked_as_ads && // <-- фильтр: не реклама
+      !post.is_pinned &&     // <-- фильтр: не закреп
+      post.date > borderDate // <-- фильтр: новее чем последний отправленный
+    );
+    if (validPosts.length) {
+      const post = validPosts[0]; // <-- берём самый свежий (VK сортирует по убыванию даты)
+      if (!freshestPost || post.date > freshestPost.date) {
+        freshestPost = post;
+        freshestGroup = groupId;
+      }
+    }
+  } catch (e) {
       // Для отладки:
       // console.error(`[wall.get] ${groupId}:`, e?.response?.data || e.message);
     }
