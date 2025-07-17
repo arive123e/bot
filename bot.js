@@ -22,6 +22,7 @@ function getUserData(tgId) {
 const MAX_GROUPS_FREE = 3; // сколько групп выбрать бесплатно
 const UNLIMITED_USERS = [792903459, 1022172210];
 const userSelectedGroups = {};
+const groupTitles = {};
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const SUPPORT_CHAT_ID = -4778492984; // chat_id группы поддержки
