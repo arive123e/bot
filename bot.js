@@ -160,13 +160,6 @@ if (query.data === 'back_to_all_groups') {
   await bot.answerCallbackQuery(query.id);
   return;
 }
-
-
-    await bot.sendMessage(query.message.chat.id, privacyText, {
-      disable_web_page_preview: true
-    });
-    await bot.answerCallbackQuery(query.id);
-    return;
  
 
   // --- Ответить пользователю из группы поддержки ---
