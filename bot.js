@@ -719,7 +719,7 @@ const videos = attachments.filter(att => att.type === 'video');
 if (photos.length === 1) {
   // Одиночная фотка — подпись и кнопка прямо под фото
   const photo = photos[0].photo.sizes.sort((a, b) => b.width - a.width)[0];
-const { caption, buttons } = formatVkCaption(freshestPost.text, groupName, postUrl);
+const { caption, buttons } = formatVkCaption(post.text, groupName, postUrl);
 await bot.sendPhoto(tgUserId, photo.url, {
   caption: caption,
   parse_mode: 'HTML',
@@ -733,7 +733,7 @@ await bot.sendPhoto(tgUserId, photo.url, {
   });
   const messages = await bot.sendMediaGroup(tgUserId, media);
 const replyToId = messages[0].message_id;
-const { text, buttons } = formatVkPost(freshestPost.text, groupName, postUrl);
+const { text, buttons } = formatVkPost(post.text, groupName, postUrl);
 await bot.sendMessage(tgUserId, text, {
   parse_mode: 'HTML',
   reply_markup: { inline_keyboard: buttons },
@@ -742,7 +742,7 @@ await bot.sendMessage(tgUserId, text, {
 } else {
   // Нет фото: просто текст с кнопкой, если текст есть
   if (isTextExists) {
-  const { text, buttons } = formatVkPost(freshestPost.text, groupName, postUrl);
+  const { text, buttons } = formatVkPost(post.text, groupName, postUrl);
   await bot.sendMessage(tgUserId, text, {
     parse_mode: 'HTML',
     reply_markup: { inline_keyboard: buttons }
