@@ -167,7 +167,7 @@ if (query.data === 'back_to_all_groups') {
     });
     await bot.answerCallbackQuery(query.id);
     return;
-  }
+ }
 
   // --- Ответить пользователю из группы поддержки ---
   if (query.data.startsWith('reply_')) {
