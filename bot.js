@@ -40,6 +40,7 @@ const bot = new TelegramBot(token, { polling: true });
 const replyContext = {}; // Кому отвечает магистр поддержки
 
 const MAX_TEXT_LENGTH = 2000;
+const MAX_CAPTION_LENGTH = 1024; 
 
 async function fetchGroupTitle(groupId, vkAccessToken) {
   try {
@@ -60,19 +61,36 @@ async function fetchGroupTitle(groupId, vkAccessToken) {
   }
 }
 
-// === ВСТАВЬ ГДЕ-ТО ЗДЕСЬ (после констант, но до основной логики) ===
-function formatVkPost(text, postUrl) {
-  let needCut = text.length > MAX_TEXT_LENGTH;
+// --- Форматирование для обычного текста ---
+function formatVkPost(text, groupName, postUrl) {
+  const boldGroup = `<b>${groupName}</b>`;
+  let body = text && text.trim().length > 0
+    ? `${boldGroup}\n\n${text.trim()}`
+    : boldGroup;
+  let needCut = body.length > MAX_TEXT_LENGTH;
   let visibleText = needCut
-    ? text.slice(0, MAX_TEXT_LENGTH) + '\n\n...Продолжение ⬇️'
-    : text;
+    ? body.slice(0, MAX_TEXT_LENGTH - 20) + '\n\n...Продолжение ⬇️'
+    : body;
+  const buttons = [
+    [{ text: "✨ Призвать весь пост в VK", url: postUrl }]
+  ];
+  return { text: visibleText, buttons };
+}
 
-  return {
-    text: visibleText,
-    buttons: [
-      [{ text: "✨ Призвать весь пост в VK", url: postUrl }]
-    ]
-  };
+// --- Форматирование для caption (фото, документы) ---
+function formatVkCaption(text, groupName, postUrl) {
+  const boldGroup = `<b>${groupName}</b>`;
+  let body = text && text.trim().length > 0
+    ? `${boldGroup}\n\n${text.trim()}`
+    : boldGroup;
+  let needCut = body.length > MAX_CAPTION_LENGTH;
+  let visibleText = needCut
+    ? body.slice(0, MAX_CAPTION_LENGTH - 20) + '\n\n...Продолжение ⬇️'
+    : body;
+  const buttons = [
+    [{ text: "✨ Призвать весь пост в VK", url: postUrl }]
+  ];
+  return { caption: visibleText, buttons };
 }
 
 
@@ -558,48 +576,59 @@ const photos = attachments.filter(att => att.type === 'photo');
 const docs = attachments.filter(att => att.type === 'doc');
 const videos = attachments.filter(att => att.type === 'video');
 
-// 5. Отправка (всё по правилам)
 if (photos.length === 1) {
   // Одиночная фотка: подпись и кнопка прямо под фото
   const photo = photos[0].photo.sizes.sort((a, b) => b.width - a.width)[0];
+  const { caption, buttons } = formatVkCaption(freshestPost.text, groupName, postUrl);
   await bot.sendPhoto(tgUserId, photo.url, {
     caption: caption,
     parse_mode: 'HTML',
     reply_markup: { inline_keyboard: buttons }
   });
+
 } else if (photos.length > 1) {
-  // Альбом: все фото одной медиагруппой, caption и кнопка reply на первую фотку
+  // Альбом: отправляем только фото
   const media = photos.map(att => {
     const photo = att.photo.sizes.sort((a, b) => b.width - a.width)[0];
     return { type: 'photo', media: photo.url };
   });
   const messages = await bot.sendMediaGroup(tgUserId, media);
+
+  // Текст-пост (с кнопкой и обрезкой) отправляем reply на первую фотку
   const replyToId = messages[0].message_id;
-  await bot.sendMessage(tgUserId, caption, {
+  const { text, buttons } = formatVkPost(freshestPost.text, groupName, postUrl);
+  await bot.sendMessage(tgUserId, text, {
     parse_mode: 'HTML',
     reply_markup: { inline_keyboard: buttons },
     reply_to_message_id: replyToId
   });
-} else {
-  // Нет фото: просто текст с кнопкой, если текст есть
-  if (isTextExists) {
-    await bot.sendMessage(tgUserId, caption, {
-      parse_mode: 'HTML',
-      reply_markup: { inline_keyboard: buttons }
-    });
-  }
-  // Если и фото нет и текста нет — вообще ничего не отправляем
+
+} else if (isTextExists) {
+  // Нет фото — просто текст с кнопкой и обрезкой
+  const { text, buttons } = formatVkPost(freshestPost.text, groupName, postUrl);
+  await bot.sendMessage(tgUserId, text, {
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: buttons }
+  });
 }
 
 // 6. Отправляем документы и видео отдельными сообщениями (по желанию можно добавить описание)
 for (const att of docs) {
-  await bot.sendDocument(tgUserId, att.doc.url, { caption: att.doc.title || '' });
+  // Обрезаем caption до 1024 символов и добавляем "...Продолжение ⬇️" если что
+  let docCaption = att.doc.title || '';
+  if (docCaption.length > MAX_CAPTION_LENGTH) {
+    docCaption = docCaption.slice(0, MAX_CAPTION_LENGTH - 20) + '\n\n...Продолжение ⬇️';
+  }
+  await bot.sendDocument(tgUserId, att.doc.url, {
+    caption: docCaption,
+    parse_mode: 'HTML'
+  });
 }
+
 for (const att of videos) {
   const videoUrl = `https://vk.com/video${att.video.owner_id}_${att.video.id}`;
   await bot.sendMessage(tgUserId, "🎬 <b>Видео:</b> " + videoUrl, { parse_mode: 'HTML' });
 }
-
 
   // Обновляем ОБЩУЮ границу (borderDate) для пользователя (а не для группы!)
   sentPosts[tgUserId] = sentPosts[tgUserId] || {};
@@ -690,11 +719,12 @@ const videos = attachments.filter(att => att.type === 'video');
 if (photos.length === 1) {
   // Одиночная фотка — подпись и кнопка прямо под фото
   const photo = photos[0].photo.sizes.sort((a, b) => b.width - a.width)[0];
-  await bot.sendPhoto(tgUserId, photo.url, {
-    caption: caption,
-    parse_mode: 'HTML',
-    reply_markup: { inline_keyboard: buttons }
-  });
+const { caption, buttons } = formatVkCaption(freshestPost.text, groupName, postUrl);
+await bot.sendPhoto(tgUserId, photo.url, {
+  caption: caption,
+  parse_mode: 'HTML',
+  reply_markup: { inline_keyboard: buttons }
+});
 } else if (photos.length > 1) {
   // Альбом: все фото одной медиагруппой, caption и кнопка reply на первую фотку
   const media = photos.map(att => {
@@ -702,28 +732,35 @@ if (photos.length === 1) {
     return { type: 'photo', media: photo.url };
   });
   const messages = await bot.sendMediaGroup(tgUserId, media);
-  const replyToId = messages[0].message_id;
-  await bot.sendMessage(tgUserId, caption, {
-    parse_mode: 'HTML',
-    reply_markup: { inline_keyboard: buttons },
-    reply_to_message_id: replyToId
-  });
+const replyToId = messages[0].message_id;
+const { text, buttons } = formatVkPost(freshestPost.text, groupName, postUrl);
+await bot.sendMessage(tgUserId, text, {
+  parse_mode: 'HTML',
+  reply_markup: { inline_keyboard: buttons },
+  reply_to_message_id: replyToId
+});
 } else {
   // Нет фото: просто текст с кнопкой, если текст есть
   if (isTextExists) {
-    await bot.sendMessage(tgUserId, caption, {
-      parse_mode: 'HTML',
-      reply_markup: { inline_keyboard: buttons }
-    });
-  }
-  // Если и фото нет и текста нет — ничего не отправляем
+  const { text, buttons } = formatVkPost(freshestPost.text, groupName, postUrl);
+  await bot.sendMessage(tgUserId, text, {
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: buttons }
+  });
 }
 
 // Документы отдельными сообщениями
 for (const att of docs) {
-  await bot.sendDocument(tgUserId, att.doc.url, { caption: att.doc.title || '' });
+  let docCaption = att.doc.title || '';
+  if (docCaption.length > MAX_CAPTION_LENGTH) {
+    docCaption = docCaption.slice(0, MAX_CAPTION_LENGTH - 20) + '\n\n...Продолжение ⬇️';
+  }
+  await bot.sendDocument(tgUserId, att.doc.url, {
+    caption: docCaption,
+    parse_mode: 'HTML'
+  });
 }
-
+  
 // Видео отдельными сообщениями
 for (const att of videos) {
   const videoUrl = `https://vk.com/video${att.video.owner_id}_${att.video.id}`;
