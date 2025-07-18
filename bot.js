@@ -765,8 +765,8 @@ for (const att of docs) {
 for (const att of videos) {
   const videoUrl = `https://vk.com/video${att.video.owner_id}_${att.video.id}`;
   await bot.sendMessage(tgUserId, "🎬 <b>Видео:</b> " + videoUrl, { parse_mode: 'HTML' });
-}
-
+ }
+} 
 
     // После успешной отправки обновляем ОБЩУЮ “границу” пользователя
     sentPosts[tgUserId].borderDate = post.date;
