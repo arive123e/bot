@@ -778,6 +778,3 @@ for (const att of videos) {
 
 // Теперь рассылка будет работать по одной “ленте”, а не по группам!
 setInterval(sendLatestVkPosts, 60 * 1000);
-
-
-
