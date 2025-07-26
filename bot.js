@@ -493,7 +493,7 @@ bot.onText(/\/help/, async (msg) => {
     reply_markup: {
       inline_keyboard: [
         [{ text: "✨ Как это работает", callback_data: "help_how" }],
-        [{ text: "🔮 Авторизация", callback_data: "help_auth" }],
+        [{ text: "🪄 Авторизация", callback_data: "help_auth" }],
         [{ text: "📜 Работа с группами", callback_data: "help_groups" }]
       ]
     }
