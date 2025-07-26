@@ -38,6 +38,7 @@ if (!token) {
 
 const bot = new TelegramBot(token, { polling: true });
 const replyContext = {}; // Кому отвечает магистр поддержки
+const waitingSupport = {}; // Отслеживаем, кто ждёт поддержки
 
 const MAX_TEXT_LENGTH = 2000;
 const MAX_CAPTION_LENGTH = 1024; 
