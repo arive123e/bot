@@ -19,6 +19,32 @@ function getUserData(tgId) {
   return Object.values(users).find(u => String(u.tg_id) === String(tgId) && u.status === 'ok');
 }
 
+function removeUserByTgId(tgId) {
+  if (!fs.existsSync(usersPath)) return;
+  const users = JSON.parse(fs.readFileSync(usersPath, 'utf-8'));
+  const userEntry = Object.entries(users).find(([_, u]) => String(u.tg_id) === String(tgId));
+  if (!userEntry) return;
+  const [uid, _] = userEntry;
+  delete users[uid];
+  fs.writeFileSync(usersPath, JSON.stringify(users, null, 2));
+  console.log(`🗑️ Удалён пользователь ${tgId} из users.json`);
+}
+
+async function safeSendMessage(bot, tgId, text, options = {}) {
+  try {
+    await bot.sendMessage(tgId, text, options);
+  } catch (e) {
+    const isBlocked = e.response?.body?.description?.includes('bot was blocked by the user');
+    if (isBlocked) {
+      console.log(`[bot] ❌ Пользователь ${tgId} заблокировал бота — удаляем из базы`);
+      removeUserByTgId(tgId);
+    } else {
+      console.error(`[bot] ⚠️ Ошибка при отправке сообщения ${tgId}:`, e.message);
+    }
+  }
+}
+
+
 const MAX_GROUPS_FREE = 5; // сколько групп выбрать бесплатно
 const UNLIMITED_USERS = [792903459, 1022172210];
 const groupTitles = {};
@@ -677,7 +703,7 @@ if (photos.length === 1) {
   // Текст-пост (с кнопкой и обрезкой) отправляем reply на первую фотку
   const replyToId = messages[0].message_id;
   const { text, buttons } = formatVkPost(freshestPost.text, groupName, postUrl);
-  await bot.sendMessage(tgUserId, text, {
+  await safeSendMessage(bot, tgUserId, text, {
     parse_mode: 'HTML',
     reply_markup: { inline_keyboard: buttons },
     reply_to_message_id: replyToId
@@ -686,7 +712,7 @@ if (photos.length === 1) {
 } else if (isTextExists) {
   // Нет фото — просто текст с кнопкой и обрезкой
   const { text, buttons } = formatVkPost(freshestPost.text, groupName, postUrl);
-  await bot.sendMessage(tgUserId, text, {
+  await safeSendMessage(bot, tgUserId, text, {
     parse_mode: 'HTML',
     reply_markup: { inline_keyboard: buttons }
   });
@@ -814,7 +840,7 @@ await bot.sendPhoto(tgUserId, photo.url, {
   const messages = await bot.sendMediaGroup(tgUserId, media);
 const replyToId = messages[0].message_id;
 const { text, buttons } = formatVkPost(post.text, groupName, postUrl);
-await bot.sendMessage(tgUserId, text, {
+await safeSendMessage(bot, tgUserId, text, {
   parse_mode: 'HTML',
   reply_markup: { inline_keyboard: buttons },
   reply_to_message_id: replyToId
@@ -823,7 +849,7 @@ await bot.sendMessage(tgUserId, text, {
   // Нет фото: просто текст с кнопкой, если текст есть
   if (isTextExists) {
   const { text, buttons } = formatVkPost(post.text, groupName, postUrl);
-  await bot.sendMessage(tgUserId, text, {
+  await safeSendMessage(bot, tgUserId, text, {
     parse_mode: 'HTML',
     reply_markup: { inline_keyboard: buttons }
   });
